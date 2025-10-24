@@ -1,19 +1,23 @@
 package App::Netdisco::Transport::SNMP;
 
+# 导入 Dancer 框架和数据库插件
 use Dancer qw/:syntax :script/;
 use Dancer::Plugin::DBIC 'schema';
 
+# 导入 SNMP 工具、设备、权限和快照模块
 use App::Netdisco::Util::SNMP qw/get_communities get_mibdirs/;
 use App::Netdisco::Util::Device 'get_device';
 use App::Netdisco::Util::Permission 'acl_matches';
 use App::Netdisco::Util::Snapshot qw/load_cache_for_device add_snmpinfo_aliases fixup_browser_from_aliases/;
 
+# 导入 SNMP 信息、异常处理、模块加载和网络地址处理模块
 use SNMP::Info;
 use Try::Tiny;
 use Module::Load ();
 use NetAddr::IP::Lite ':lower';
 use List::Util qw/pairkeys pairfirst/;
 
+# 导入单例基类
 use base 'Dancer::Object::Singleton';
 
 =head1 NAME
@@ -29,8 +33,11 @@ given device IP, or else undef. All methods are class methods, for example:
 
 =cut
 
+# 定义包属性
 __PACKAGE__->attributes(qw/ readers writers /);
 
+# 初始化方法
+# 用途：初始化 SNMP 传输对象，创建读写连接缓存
 sub init {
   my ( $class, $self ) = @_;
   $self->readers( {} );
@@ -55,10 +62,13 @@ Returns C<undef> if the connection fails.
 
 =cut
 
+# 获取读取器连接
+# 用途：根据 IP 地址返回配置并连接到该设备的 SNMP::Info 实例
 sub reader_for {
   my ($class, $ip, $useclass) = @_;
   my $device = get_device($ip) or return undef;
 
+  # 检查缓存
   my $readers = $class->instance->readers or return undef;
   return $readers->{$device->ip} if exists $readers->{$device->ip};
 
@@ -80,17 +90,21 @@ Returns C<undef> if the connection fails.
 
 =cut
 
+# 测试连接
+# 用途：测试到设备的 SNMP 连接性，用于重新编号前的连接测试
 sub test_connection {
   my ($class, $ip) = @_;
   my $addr = NetAddr::IP::Lite->new($ip) or return undef;
 
-  # avoid renumbering to localhost loopbacks
+  # 避免重新编号到本地回环地址
   return undef if $addr->addr eq '0.0.0.0'
                   or acl_matches($addr->addr, 'group:__LOOPBACK_ADDRESSES__');
 
+  # 创建临时设备对象
   my $device = schema(vars->{'tenant'})->resultset('Device')
     ->new_result({ ip => $addr->addr }) or return undef;
 
+  # 检查缓存并创建连接
   my $readers = $class->instance->readers or return undef;
   return $readers->{$device->ip} if exists $readers->{$device->ip};
 
@@ -107,12 +121,16 @@ Returns C<undef> if the connection fails.
 
 =cut
 
+# 获取写入器连接
+# 用途：与 reader_for 相同，但使用应用程序配置文件中的读写社区字符串
 sub writer_for {
   my ($class, $ip, $useclass) = @_;
   my $device = get_device($ip) or return undef;
 
+  # 伪设备不支持写入
   return undef if $device->in_storage and $device->is_pseudo;
 
+  # 检查缓存并创建写入连接
   my $writers = $class->instance->writers or return undef;
   return $writers->{$device->ip} if exists $writers->{$device->ip};
 
@@ -121,14 +139,17 @@ sub writer_for {
     = _snmp_connect_generic('write', $device, $useclass));
 }
 
+# 通用 SNMP 连接方法
+# 用途：建立 SNMP 连接的核心方法，处理所有连接参数和配置
 sub _snmp_connect_generic {
   my ($mode, $device, $useclass) = @_;
   $mode ||= 'read';
 
+  # 构建 SNMP 连接参数
   my %snmp_args = (
     AutoSpecify => 0,
     DestHost => $device->ip,
-    # the defined() allows 0 to be a settable value 
+    # defined() 允许 0 作为可设置值
     Retries => defined(setting('snmpretries')) ? setting('snmpretries') : 2,
     Timeout => (setting('snmptimeout') || 1000000),
     NonIncreasing => (setting('nonincreasing') || 0),
@@ -141,15 +162,15 @@ sub _snmp_connect_generic {
     DebugSNMP => ($ENV{SNMP_TRACE} || 0),
   );
 
-  # an override for RemotePort
+  # RemotePort 的覆盖设置
   ($snmp_args{RemotePort}) =
     (pairkeys pairfirst { acl_matches($device, $b) }
       %{setting('snmp_remoteport') || {}}) || 161;
 
-  # an override for bulkwalk
+  # bulkwalk 的覆盖设置
   $snmp_args{BulkWalk} = 0 if acl_matches($device, 'bulkwalk_no');
 
-  # further protect against buggy Net-SNMP, and disable bulkwalk
+  # 进一步保护免受有问题的 Net-SNMP 影响，并禁用 bulkwalk
   if ($snmp_args{BulkWalk}
       and ($SNMP::VERSION eq '5.0203' || $SNMP::VERSION eq '5.0301')) {
 
@@ -159,21 +180,22 @@ sub _snmp_connect_generic {
       $snmp_args{BulkWalk} = 0;
   }
 
-  # support for offline cache
+  # 支持离线缓存
   my $cache = load_cache_for_device($device);
   if (scalar keys %$cache) {
       $snmp_args{Cache} = $cache;
       $snmp_args{Offline} = 1;
-      # support pseudo/offline device renumber and also pseudo device autovivification
+      # 支持伪/离线设备重新编号以及伪设备自动创建
       $device->set_column(is_pseudo => \'true') if not $device->is_pseudo;
       debug sprintf 'snmp transport running in offline mode for: [%s]', $device->ip;
   }
 
-  # any net-snmp options to add or override
+  # 任何要添加或覆盖的 net-snmp 选项
   foreach my $k (keys %{ setting('net_snmp_options') }) {
     $snmp_args{ $k } = setting('net_snmp_options')->{ $k };
   }
 
+  # 调试输出配置信息
   if (scalar keys %{ setting('net_snmp_options') }
       or not $snmp_args{BulkWalk}) {
     foreach my $k (sort keys %snmp_args) {
@@ -182,27 +204,27 @@ sub _snmp_connect_generic {
     }
   }
 
-  # get the community string(s)
+  # 获取社区字符串
   my @communities = $snmp_args{Offline}
     ? ({read => 1, write => 0, only => $device->ip, community => 'public'})
     : get_communities($device, $mode);
 
-  # which SNMP versions to try and in what order
+  # 确定要尝试的 SNMP 版本和顺序
   my @versions =
     ( acl_matches($device->ip, 'snmpforce_v3') ? (3)
     : acl_matches($device->ip, 'snmpforce_v2') ? (2)
     : acl_matches($device->ip, 'snmpforce_v1') ? (1)
     : (reverse (1 .. (setting('snmpver') || 3))) );
 
-  # use existing or new device class
+  # 使用现有或新的设备类
   my @classes = ($useclass || 'SNMP::Info');
   if ($device->snmp_class and not $useclass) {
       unshift @classes, $device->snmp_class;
   }
 
-  # try last known-good by tag if it's stored
-  # this gets in the way of SNMP version upgrade (2 to 3)
-  # but can use only/no to get around that
+  # 如果存储了标签，尝试最后已知的良好设置
+  # 这会干扰 SNMP 版本升级（2 到 3）
+  # 但可以使用 only/no 来绕过这个问题
 
   my $tag_name = 'snmp_auth_tag_'. $mode;
   my $stored_tag = eval { $device->community->$tag_name };
@@ -211,6 +233,7 @@ sub _snmp_connect_generic {
       debug sprintf '[%s:%s] try_connect with cached tag %s',
           $snmp_args{DestHost}, $snmp_args{RemotePort}, $stored_tag;
 
+      # 使用缓存的社区和版本
       my $comm = $communities[0];
       my $ver = (exists $comm->{community} ? 2 : 3);
       my %local_args = (%snmp_args,
@@ -218,7 +241,7 @@ sub _snmp_connect_generic {
         
       my $info = _try_connect($device, $classes[0], $comm, $mode, \%local_args,
             ($useclass ? 0 : 1) );
-      # if successful, restore the default/user timeouts and return
+      # 如果成功，恢复默认/用户超时并返回
       if ($info) {
           my $class = ($useclass ? $classes[0] : $info->device_type);
           return $class->new(
@@ -229,7 +252,7 @@ sub _snmp_connect_generic {
       }
   }
 
-  # try the communities in a fast pass using best version
+  # 使用最佳版本快速尝试社区字符串
 
   VERSION: foreach my $ver (3, 2) {
       my %local_args = (%snmp_args,
@@ -238,13 +261,14 @@ sub _snmp_connect_generic {
       COMMUNITY: foreach my $comm (@communities) {
           next unless $comm;
 
+          # 版本和社区字符串匹配检查
           next if $ver eq 3 and exists $comm->{community};
           next if $ver ne 3 and !exists $comm->{community};
 
           my $info = _try_connect($device, $classes[0], $comm, $mode, \%local_args,
             ($useclass ? 0 : 1) );
 
-          # if successful, restore the default/user timeouts and return
+          # 如果成功，恢复默认/用户超时并返回
           if ($info) {
               my $class = ($useclass ? $classes[0] : $info->device_type);
               return $class->new(
@@ -256,12 +280,13 @@ sub _snmp_connect_generic {
       }
   }
 
-  # then revert to conservative settings and repeat with all versions
+  # 然后恢复到保守设置并使用所有版本重复
 
-  # unless user wants just the fast connections for bulk discovery
-  # or we are on the first discovery attempt of a new device
+  # 除非用户只想要批量发现的快速连接
+  # 或者我们在新设备的首次发现尝试中
   return if setting('snmp_try_slow_connect') == false;
 
+  # 尝试所有设备类和版本组合
   CLASS: foreach my $class (@classes) {
       next unless $class;
 
@@ -272,6 +297,7 @@ sub _snmp_connect_generic {
           COMMUNITY: foreach my $comm (@communities) {
               next unless $comm;
 
+              # 版本和社区字符串匹配检查
               next if $ver eq 3 and exists $comm->{community};
               next if $ver ne 3 and !exists $comm->{community};
 
@@ -285,9 +311,13 @@ sub _snmp_connect_generic {
   return undef;
 }
 
+# 尝试连接方法
+# 用途：尝试建立 SNMP 连接，处理设备类重新分类和别名添加
 sub _try_connect {
   my ($device, $class, $comm, $mode, $snmp_args, $reclass) = @_;
   my %comm_args = _mk_info_commargs($comm);
+  
+  # 调试社区字符串显示
   my $debug_comm = '<hidden>';
   if ($ENV{ND2_SHOW_COMMUNITY} || $ENV{SHOW_COMMUNITY}) {
     $debug_comm = ($comm->{community} ||
@@ -298,6 +328,7 @@ sub _try_connect {
   my $info = undef;
 
   try {
+      # 调试连接信息
       $snmp_args->{Offline} || debug
         sprintf '[%s:%s] try_connect with v: %s, t: %s, r: %s, class: %s, comm: %s',
           $snmp_args->{DestHost}, $snmp_args->{RemotePort},
@@ -305,11 +336,12 @@ sub _try_connect {
           $class, $debug_comm;
       Module::Load::load $class;
 
+      # 创建 SNMP 连接并测试
       $info = $class->new(%$snmp_args, %comm_args) or return;
       $info = ($mode eq 'read' ? _try_read($info, $device, $comm)
                                : _try_write($info, $device, $comm));
 
-      # first time a device is discovered, re-instantiate into specific class
+      # 首次发现设备时，重新实例化为特定类
       if ($reclass and $info and $info->device_type ne $class) {
           $class = $info->device_type;
           $info->offline || debug
@@ -320,6 +352,7 @@ sub _try_connect {
           Module::Load::load $class;
           $info = $class->new(%$snmp_args, %comm_args);
 
+          # 为离线设备添加别名
           if ($info->offline) {
               add_snmpinfo_aliases($info);
               fixup_browser_from_aliases($device, $info);
@@ -333,15 +366,18 @@ sub _try_connect {
       debug sprintf 'caught error in try_connect: %s', $_;
       undef $info;
       die "exception in SNMP - could be job timeout or crash\n";
-      # use DDP; debug p $_;
+      # use DDP; debug p $_;
   };
 
   return $info;
 }
 
+# 尝试读取连接
+# 用途：测试 SNMP 读取连接，验证设备信息并更新数据库
 sub _try_read {
   my ($info, $device, $comm) = @_;
 
+  # 验证连接成功和设备信息
   return undef unless (
     (not defined $info->error)
     and (defined $info->uptime or defined $info->hrSystemUptime or defined $info->sysUpTime)
@@ -349,37 +385,44 @@ sub _try_read {
     and $info->class
   );
 
+  # 离线设备直接返回
   return $info if $info->offline;
   
+  # 更新设备 SNMP 版本
   $device->in_storage
     ? $device->update({snmp_ver => $info->snmp_ver})
     : $device->set_column(snmp_ver => $info->snmp_ver);
 
+  # 更新社区字符串
   if ($comm->{community}) {
       $device->in_storage
         ? $device->update({snmp_comm => $comm->{community}})
         : $device->set_column(snmp_comm => $comm->{community});
   }
 
-  # regardless of device in storage, save the hint
+  # 无论设备是否在存储中，都保存提示
   $device->update_or_create_related('community',
     {snmp_auth_tag_read => $comm->{tag}}) if $comm->{tag};
 
   return $info;
 }
 
+# 尝试写入连接
+# 用途：测试 SNMP 写入连接，验证写入权限并更新数据库
 sub _try_write {
   my ($info, $device, $comm) = @_;
 
+  # 测试写入权限（通过位置设置）
   my $loc = $info->load_location;
   $info->set_location($loc) or return undef;
   return undef unless ($loc eq $info->load_location);
 
+  # 更新设备 SNMP 版本
   $device->in_storage
     ? $device->update({snmp_ver => $info->snmp_ver})
     : $device->set_column(snmp_ver => $info->snmp_ver);
 
-  # one of these two cols must be set
+  # 这两个列中必须设置一个
   $device->update_or_create_related('community', {
     ($comm->{tag} ? (snmp_auth_tag_write => $comm->{tag}) : ()),
     ($comm->{community} ? (snmp_comm_rw => $comm->{community}) : ()),
@@ -388,18 +431,23 @@ sub _try_write {
   return $info;
 }
 
+# 构建 SNMP 社区参数
+# 用途：根据社区配置构建 SNMP::Info 所需的连接参数
 sub _mk_info_commargs {
   my $comm = shift;
   return () unless ref {} eq ref $comm and scalar keys %$comm;
 
+  # SNMP v1/v2c 社区字符串
   return (Community => $comm->{community})
     if exists $comm->{community};
 
+  # SNMP v3 安全级别确定
   my $seclevel =
     (exists $comm->{auth} ?
     (exists $comm->{priv} ? 'authPriv' : 'authNoPriv' )
                           : 'noAuthNoPriv');
 
+  # 构建 SNMP v3 参数
   return (
     SecName  => $comm->{user},
     SecLevel => $seclevel,
