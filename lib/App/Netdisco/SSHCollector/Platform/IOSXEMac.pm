@@ -43,42 +43,46 @@ Return a hashref like IOS.pm macsuck:
 { VLAN => { PORTNAME => { MAC_IEEE => 1 } } }
 
 =cut
+# 从Cisco IOS-XE设备收集MAC地址表条目
+# 该方法用于连接IOS-XE设备并获取其MAC地址表信息
+# 适用于BRIDGE/Q-BRIDGE MIB不暴露FDB的平台（如ISR/SD-WAN）
 sub macsuck {
     my ($self, $hostlabel, $ssh, $args) = @_;
 
     debug "$hostlabel $$ macsuck() via IOSXEMac (Expect)";
 
+    # 打开伪终端连接
     my ($pty, $pid) = $ssh->open2pty;
     unless ($pty) {
-        warn "unable to run remote command [$hostlabel] " . $ssh->error;
+        warn "无法运行远程命令 [$hostlabel] " . $ssh->error;
         return;
     }
     my $exp = Expect->init($pty);
     my ($pos, $err, $match, $before, $after);
 
-    my $prompt  = qr/[>#]\s*$/;   # IOS-XE exec prompt
+    my $prompt  = qr/[>#]\s*$/;   # IOS-XE执行模式提示符
     my $timeout = 15;
 
-    # reach prompt
+    # 等待提示符出现
     ($pos, $err, $match, $before, $after) = $exp->expect($timeout, -re => $prompt);
 
-    # no paging
+    # 禁用分页显示
     $exp->send("terminal length 0\n");
     ($pos, $err, $match, $before, $after) = $exp->expect($timeout, -re => $prompt);
 
-    # collect ALL entries (dynamic + static)
+    # 收集所有条目（动态+静态）
     $exp->send("show mac address-table\n");
     ($pos, $err, $match, $before, $after) = $exp->expect(30, -re => $prompt);
 
     my @lines = split /\r?\n/, ($before // '');
 
-    # exit
+    # 退出连接
     $exp->send("exit\n");
     $exp->hard_close();
 
     my $macentries = {};
 
-    # Matches table rows:
+    # 匹配表行的正则表达式:
     #   VLAN   MAC Address       Type      Ports
     #   10     0011.b908.1dfe    DYNAMIC   Gi0/1/3
     my $re_line = qr{
@@ -90,32 +94,36 @@ sub macsuck {
         \s*$
     }ix;
 
+    # 解析MAC地址表条目
     LINE: for my $line (@lines) {
+        # 跳过标题行和空行
         next if $line =~ /^\s*(Vlan|----|Mac Address Table|Total|$)/i;
 
         if ($line =~ $re_line) {
             my ($vlan, $mac_dotted, $type, $port_raw) = ($1, $2, uc($3), $4);
 
-            # keep only numeric VLANs, skip CPU
+            # 只保留数字VLAN，跳过CPU端口
             next LINE unless $vlan =~ /^\d+$/;
             next LINE if uc($port_raw) eq 'CPU';
 
-            # expand interface name
+            # 扩展接口名称
             my ($pfx, $rest) = ($port_raw =~ /^([A-Za-z]+)(.*)$/);
             my $port = defined $pfx
               ? sprintf('%s%s', ($IF_NAME_MAP->{$pfx} || $pfx), ($rest || ''))
               : $port_raw;
 
-            # convert MAC to colon IEEE format
+            # 将MAC地址转换为冒号分隔的IEEE格式
             my $mac_ieee = mac_as_ieee($mac_dotted);
 
+            # 统计MAC地址条目
             ++$macentries->{$vlan}->{$port}->{$mac_ieee};
         }
     }
 
-    debug "$hostlabel $$ parsed "
+    # 输出解析统计信息
+    debug "$hostlabel $$ 解析了 "
       . (0 + (map { scalar keys %{ $macentries->{$_} || {} } } keys %$macentries))
-      . " port buckets (VLANs: " . join(',', sort keys %$macentries) . ")";
+      . " 个端口桶 (VLAN: " . join(',', sort keys %$macentries) . ")";
 
     return $macentries;
 }

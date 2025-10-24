@@ -47,23 +47,29 @@ Returns a list of hashrefs in the format C<{ mac =E<gt> MACADDR, ip =E<gt> IPADD
 
 =cut
 
+# 从Checkpoint GAIA嵌入式系统收集ARP条目
+# 该方法用于连接Checkpoint GAIA嵌入式设备并获取其ARP表信息
+# 需要具有"网络管理员"权限的用户
 sub arpnip {
     my ($self, $hostlabel, $ssh, $args) = @_;
 
     debug "$hostlabel $$ arpnip()";
 
+    # 打开伪终端连接
     my ($pty, $pid) = $ssh->open2pty;
     unless ($pty) {
-        debug "unable to run remote command [$hostlabel] " . $ssh->error;
+        debug "无法运行远程命令 [$hostlabel] " . $ssh->error;
         return ();
     }
     my $expect = Expect->init($pty);
 
     my ($pos, $error, $match, $before, $after);
-    my $prompt = qr/>/;
+    my $prompt = qr/>/;  # 匹配GAIA提示符
 
+    # 等待GAIA提示符（较长的超时时间）
     ($pos, $error, $match, $before, $after) = $expect->expect(30, -re, $prompt);
 
+    # 使用自定义arp命令或默认命令
     my $command = ($args->{arp_command} || 'arp');
     $expect->send("$command -n \n");
     ($pos, $error, $match, $before, $after) = $expect->expect(30, -re, $prompt);
@@ -71,9 +77,11 @@ sub arpnip {
     my @arpentries = ();
     my @lines = split(m/\n/, $before);
 
-#   ? (192.168.17.178) at 5C:F9:DD:71:1F:08 [ether] on LAN1
-# https://github.com/netdisco/netdisco/issues/365
+    # GAIA ARP输出格式: ? (192.168.17.178) at 5C:F9:DD:71:1F:08 [ether] on LAN1
+    # 参考: https://github.com/netdisco/netdisco/issues/365
     my $linereg = qr/([0-9.]+)\s+ether\s+([a-fA-F0-9:]+).+/;
+    
+    # 解析ARP条目
     foreach my $line (@lines) {
         if ($line =~ $linereg) {
             my ($ip, $mac) = ($1, $2);
@@ -81,6 +89,7 @@ sub arpnip {
         }
     }
 
+    # 退出连接
     $expect->send("exit\n");
     $expect->soft_close();
 

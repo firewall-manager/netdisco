@@ -38,24 +38,30 @@ Returns a list of hashrefs in the format C<{ mac =E<gt> MACADDR, ip =E<gt> IPADD
 
 =cut
 
+# 从F5 BigIP负载均衡器收集ARP条目
+# 该方法用于连接F5 BigIP设备并获取其ARP表信息
+# BigIP设备有专有的IP栈，不会在标准SNMP ipNetToMediaTable中显示
 sub arpnip {
     my ($self, $hostlabel, $ssh, $args) = @_;
 
     debug "$hostlabel $$ arpnip()";
 
+    # 首先尝试使用CLI命令
     my @data = $ssh->capture("show net arp");
+    # 如果CLI命令失败，则使用tmsh命令
     unless (@data){
         @data = $ssh->capture('tmsh -c "show net arp"');
     }
 
-    chomp @data;
+    chomp @data;  # 移除每行末尾的换行符
     my @arpentries;
 
+    # 解析ARP输出，查找已解析的条目
     foreach (@data){
         if (m/\d{1,3}\..*resolved/){
             my (undef, $ip, $mac) = split(/\s+/);
 
-            # ips can look like 172.19.254.143%10, clean
+            # IP地址可能包含VLAN标识符，如172.19.254.143%10，需要清理
             $ip =~ s/%\d+//;
 
             push(@arpentries, {mac => $mac, ip => $ip});
