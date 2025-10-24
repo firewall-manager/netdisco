@@ -33,6 +33,7 @@ use App::Netdisco::Util::Permission qw/acl_matches acl_matches_only/;
 BEGIN {
   no warnings 'redefine';
 
+  # 修复Dancer重定向问题
   # https://github.com/PerlDancer/Dancer/issues/967
   *Dancer::_redirect = sub {
       my ($destination, $status) = @_;
@@ -41,7 +42,7 @@ BEGIN {
       $response->headers('Location' => $destination);
   };
 
-  # neater than using Dancer::Plugin::Res to handle JSON differently
+  # 比使用Dancer::Plugin::Res处理JSON更简洁
   *Dancer::send_error = sub {
       my ($body, $status) = @_;
       if (request_is_api) {
@@ -58,10 +59,9 @@ BEGIN {
       )->throw;
   };
 
-  # to insert /t/$tenant if set
-  # which is fine for building links, but not fine for
-  # comparison to request->path, because when is_forward() the
-  # request->path is changed...
+  # 如果设置了租户，插入/t/$tenant
+  # 这对于构建链接很好，但对于与request->path比较不好
+  # 因为当is_forward()时request->path会改变...
   *Dancer::Request::uri_for = sub {
     my ($self, $part, $params, $dont_escape) = @_;
     my $uri = $self->base;
@@ -70,7 +70,7 @@ BEGIN {
         $part = '/t/'. vars->{'tenant'} . $part;
     }
 
-    # Make sure there's exactly one slash between the base and the new part
+    # 确保base和新部分之间只有一个斜杠
     my $base = $uri->path;
     $base =~ s|/$||;
     $part =~ s|^/||;
@@ -81,9 +81,9 @@ BEGIN {
     return $dont_escape ? uri_unescape($uri->canonical) : $uri->canonical;
   };
 
-  # ...so here we are monkeypatching request->path as well
+  # ...所以这里我们也对request->path进行猴子补丁
   *Dancer::Request::path = sub {
-    die "path is accessor not mutator" if scalar @_ > 1;
+    die "path是访问器不是修改器" if scalar @_ > 1;
     my $self = shift;
     $self->_build_path() unless $self->{path};
 
@@ -101,8 +101,8 @@ BEGIN {
     return $self->{path};
   };
 
-  # implement same_site
-  # from https://github.com/PerlDancer/Dancer-Session-Cookie/issues/20
+  # 实现same_site支持
+  # 来自 https://github.com/PerlDancer/Dancer-Session-Cookie/issues/20
   *Dancer::Session::Cookie::_cookie_params = sub {
       my $self     = shift;
       my $name     = $self->session_name;
@@ -138,32 +138,40 @@ use App::Netdisco::Web::Password;
 use App::Netdisco::Web::CustomFields;
 use App::Netdisco::Web::GenericReport;
 
+# 加载Web插件
+# 该方法用于动态加载Web插件模块
 sub _load_web_plugins {
   my $plugin_list = shift;
 
   foreach my $plugin (@$plugin_list) {
+      # 处理X::前缀的插件（扩展插件）
       $plugin =~ s/^X::/+App::NetdiscoX::Web::Plugin::/;
+      # 添加默认插件命名空间
       $plugin = 'App::Netdisco::Web::Plugin::'. $plugin
         if $plugin !~ m/^\+/;
+      # 移除+前缀
       $plugin =~ s/^\+//;
 
-      $ENV{ND2_LOG_PLUGINS} && debug "loading web plugin $plugin";
+      $ENV{ND2_LOG_PLUGINS} && debug "正在加载Web插件 $plugin";
       Module::Load::load $plugin;
   }
 }
 
+# 加载配置的Web插件
 if (setting('web_plugins') and ref [] eq ref setting('web_plugins')) {
     _load_web_plugins( setting('web_plugins') );
 }
 
+# 加载额外的Web插件（从站点插件目录）
 if (setting('extra_web_plugins') and ref [] eq ref setting('extra_web_plugins')) {
     unshift @INC, dir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'site_plugins')->stringify;
     _load_web_plugins( setting('extra_web_plugins') );
 }
 
+# 为每个管理任务创建路由
 foreach my $tag (keys %{ setting('_admin_tasks') }) {
     my $code = sub {
-        # trick the ajax into working as if this were a tabbed page
+        # 让ajax像标签页一样工作
         params->{tab} = $tag;
 
         var(nav => 'admin');
@@ -172,6 +180,7 @@ foreach my $tag (keys %{ setting('_admin_tasks') }) {
         }, { layout => 'main' };
     };
 
+    # 根据任务的角色要求设置路由权限
     if (setting('_admin_tasks')->{ $tag }->{ 'roles' }) {
         get "/admin/$tag" => require_any_role setting('_admin_tasks')->{ $tag }->{ 'roles' } => $code;
     }
@@ -181,11 +190,11 @@ foreach my $tag (keys %{ setting('_admin_tasks') }) {
 }
 
 
-# after plugins are loaded, add our own template path
+# 插件加载后，添加我们自己的模板路径
 push @{ config->{engines}->{netdisco_template_toolkit}->{INCLUDE_PATH} },
      setting('views');
 
-# sort the reports which have been loaded, by their label
+# 按标签对已加载的报告进行排序
 foreach my $cat (@{ setting('_report_order') }) {
     setting('_reports_menu')->{ $cat } ||= [];
     setting('_reports_menu')->{ $cat }
@@ -195,7 +204,7 @@ foreach my $cat (@{ setting('_report_order') }) {
           @{ setting('_reports_menu')->{ $cat } } ];
 }
 
-# any template paths in deployment.yml (should override plugins)
+# deployment.yml中的任何模板路径（应该覆盖插件）
 if (setting('template_paths') and ref [] eq ref setting('template_paths')) {
     if (setting('site_local_files')) {
       push @{setting('template_paths')},
@@ -206,7 +215,7 @@ if (setting('template_paths') and ref [] eq ref setting('template_paths')) {
       @{setting('template_paths')};
 }
 
-# load cookie key from database
+# 从数据库加载cookie密钥
 setting('session_cookie_key' => undef);
 setting('session_cookie_key' => 'this_is_for_testing_only')
   if $ENV{HARNESS_ACTIVE};
@@ -217,16 +226,17 @@ eval {
 };
 Dancer::Session::Cookie::init(session);
 
-# workaround for https://github.com/PerlDancer/Dancer/issues/935
+# 修复 https://github.com/PerlDancer/Dancer/issues/935 的变通方法
 hook after_error_render => sub { setting('layout' => 'main') };
 
-# build list of port detail columns
+# 构建端口详情列列表
 {
   my @port_columns =
     sort { $a->{idx} <=> $b->{idx} }
     map  {{ name => $_, %{ setting('sidebar_defaults')->{'device_ports'}->{$_} } }}
     grep { $_ =~ m/^c_/ } keys %{ setting('sidebar_defaults')->{'device_ports'} };
 
+  # 在指定位置插入额外的端口列
   splice @port_columns, setting('device_port_col_idx_right') + 1, 0,
     grep {$_->{position} eq 'right'} @{ setting('_extra_device_port_cols') };
   splice @port_columns, setting('device_port_col_idx_mid') + 1, 0,
@@ -236,12 +246,12 @@ hook after_error_render => sub { setting('layout' => 'main') };
 
   set('port_columns' => \@port_columns);
 
-  # update sidebar_defaults so hooks scanning params see new plugin cols
+  # 更新sidebar_defaults，以便扫描参数的钩子看到新的插件列
   setting('sidebar_defaults')->{'device_ports'}->{ $_->{name} } = $_
     for @port_columns;
 }
 
-# build lookup for tenancies
+# 构建租户查找表
 {
     set('tenant_data' => {
         map { ( $_->{tag} => { displayname => $_->{'displayname'},
@@ -265,10 +275,10 @@ hook 'before' => sub {
   $key =~ s|.*/(\w+)/(\w+)$|${1}_${2}|;
   var(sidebar_key => $key);
 
-  # trim whitespace
+  # 修剪空白字符
   params->{'q'} =~ s/^\s+|\s+$//g if param('q');
 
-  # copy sidebar defaults into vars so we can mess about with it
+  # 将侧边栏默认值复制到变量中，以便我们可以对其进行操作
   foreach my $sidebar (keys %{setting('sidebar_defaults')}) {
     vars->{'sidebar_defaults'}->{$sidebar} = { map {
       ($_ => setting('sidebar_defaults')->{$sidebar}->{$_}->{'default'})
@@ -276,20 +286,20 @@ hook 'before' => sub {
   }
 };
 
-# swagger submits "false" params whereas web UI does not - remove them
-# so that code testing for param existence as truth still works.
+# swagger提交"false"参数，而web UI不这样做 - 删除它们
+# 这样测试参数存在性的代码仍然可以正常工作
 hook 'before' => sub {
   return unless request_is_api_report or request_is_api_search;
   map {delete params->{$_} if params->{$_} eq 'false'} keys %{params()};
 };
 
 hook 'before_template' => sub {
-  # search or report from navbar, or reset of sidebar, can ignore params
+  # 来自导航栏的搜索或报告，或侧边栏重置，可以忽略参数
   return if param('firstsearch')
     or var('sidebar_key') !~ m/^\w+_\w+$/;
 
-  # update defaults to contain the passed url params
-  # (this follows initial copy from config.yml, then cookie restore)
+  # 更新默认值以包含传递的URL参数
+  # （这遵循从config.yml的初始复制，然后是cookie恢复）
   var('sidebar_defaults')->{var('sidebar_key')}->{$_} = param($_)
     for keys %{ var('sidebar_defaults')->{var('sidebar_key')} || {} };
 };
@@ -297,25 +307,25 @@ hook 'before_template' => sub {
 hook 'before_template' => sub {
     my $tokens = shift;
 
-    # quick b64 encode
+    # 快速base64编码
     $tokens->{atob} = sub { encode_base64(shift, '') };
 
-    # allow portable static content
+    # 允许可移植的静态内容
     $tokens->{uri_base} = request->base->path
       if request->base->path ne '/';
     $tokens->{uri_base} .= ('/t/'. vars->{'tenant'})
       if vars->{'tenant'};
 
-    # allow portable dynamic content
+    # 允许可移植的动态内容
     $tokens->{uri_for} = sub { uri_for(@_)->path_query };
 
-    # current query string to all resubmit from within ajax template
+    # 当前查询字符串，用于从ajax模板内重新提交
     my $queryuri = URI->new();
     $queryuri->query_param($_ => param($_))
       for grep {$_ ne 'return_url'} keys %{params()};
     $tokens->{my_query} = $queryuri->query();
 
-    # hide custom fields according to only/no settings
+    # 根据only/no设置隐藏自定义字段
     $tokens->{permitted_by_acl} = sub {
         my ($thing, $config) = @_;
         return false unless $thing and $config;
@@ -325,8 +335,8 @@ hook 'before_template' => sub {
         return true;
     };
 
-    # access to logged in user's roles (modulo RBAC)
-    # role will be "admin" "port_control" "radius" or "ldap"
+    # 访问已登录用户的角色（基于RBAC）
+    # 角色将是"admin" "port_control" "radius"或"ldap"
     $tokens->{user_has_role} = sub {
         my ($role, $device) = @_;
         return false unless $role;
@@ -338,31 +348,31 @@ hook 'before_template' => sub {
         my $user = logged_in_user or return false;
         return true unless $user->portctl_role;
 
-        # this has the merged yaml and database config
+        # 这包含合并的yaml和数据库配置
         my $acl = setting('portctl_by_role')->{$user->portctl_role};
         if ($acl and (ref $acl eq q{} or ref $acl eq ref [])) {
             return true if acl_matches($device, $acl);
         }
         elsif ($acl and ref $acl eq ref {}) {
             foreach my $key (grep { defined } keys %$acl) {
-                # lhs matches device, rhs matches port
-                # but we are not interested in the ports
+                # 左侧匹配设备，右侧匹配端口
+                # 但我们不关心端口
                 return true if acl_matches($device, $key);
             }
         }
 
-        # assigned an unknown role
+        # 分配了未知角色
         return false;
     };
 
-    # create date ranges from within templates
+    # 从模板内创建日期范围
     $tokens->{to_daterange}  = sub { interval_to_daterange(@_) };
 
-    # data structure for DataTables records per page menu
+    # DataTables每页记录菜单的数据结构
     $tokens->{table_showrecordsmenu} =
       to_json( setting('table_showrecordsmenu') );
 
-    # linked searches will use these default url path params
+    # 链接搜索将使用这些默认URL路径参数
     foreach my $sidebar_key (keys %{ var('sidebar_defaults') }) {
         my ($mode, $report) = ($sidebar_key =~ m/(\w+)_(\w+)/);
         if ($mode =~ m/^(?:search|device)$/) {
@@ -380,22 +390,22 @@ hook 'before_template' => sub {
               var('sidebar_defaults')->{$sidebar_key}->{$col});
         }
 
-        # fix Plugin Template Variables to be only path+query
+        # 修复插件模板变量仅为path+query
         $tokens->{$sidebar_key} = $tokens->{$sidebar_key}->path_query;
     }
 
-    # helper from NetAddr::MAC for the MAC formatting
+    # 来自NetAddr::MAC的MAC格式化助手
     $tokens->{mac_format_call} = 'as_'. lc(param('mac_format'))
       if param('mac_format');
 
-    # allow very long lists of ports
+    # 允许很长的端口列表
     $Template::Directive::WHILE_MAX = 10_000;
 
-    # allow hash keys with leading underscores
+    # 允许带有前导下划线的哈希键
     $Template::Stash::PRIVATE = undef;
 };
 
-# prevent Template::AutoFilter taking action on CSV output
+# 防止Template::AutoFilter对CSV输出采取行动
 hook 'before_template' => sub {
     my $template_engine = engine 'template';
     if (not request->is_ajax
@@ -419,7 +429,7 @@ hook 'after_template_render' => sub {
     # debug $template_engine->{config}->{AUTO_FILTER};
 };
 
-# support for report api which is basic table result in json
+# 支持报告API，这是JSON中的基本表结果
 hook before_layout_render => sub {
   my ($tokens, $html_ref) = @_;
   return unless request_is_api_report or request_is_api_search;
@@ -445,9 +455,9 @@ hook before_layout_render => sub {
   }
 };
 
-# workaround for Swagger plugin weird response body
+# 修复Swagger插件奇怪响应体的变通方法
 hook 'after' => sub {
-    my $r = shift; # a Dancer::Response
+    my $r = shift; # 一个Dancer::Response
 
     if (request->path =~ m{/swagger\.json} and
         request->path eq uri_for('/swagger.json')->path
@@ -470,15 +480,15 @@ hook 'after' => sub {
         header('Content-Type' => 'application/json');
     }
 
-    # instead of setting serialiser
-    # and also to handle some plugins just returning undef if search fails
+    # 而不是设置序列化器
+    # 并且处理一些插件在搜索失败时只返回undef的情况
     if (request_is_api) {
         header('Content-Type' => 'application/json');
         $r->content( $r->content || '[]' );
     }
 };
 
-# setup for swagger API
+# 设置swagger API
 my $swagger = Dancer::Plugin::Swagger->instance;
 my $swagger_doc = $swagger->doc;
 
@@ -519,8 +529,8 @@ if (setting('trust_x_remote_user')) {
     }
 }
 
-# manually install Swagger UI routes because plugin doesn't handle non-root
-# hosting, so we cannot use show_ui(1)
+# 手动安装Swagger UI路由，因为插件不处理非根主机
+# 所以我们不能使用show_ui(1)
 my $swagger_base = config->{plugins}->{Swagger}->{ui_url};
 
 get $swagger_base => sub {
@@ -531,21 +541,21 @@ get $swagger_base => sub {
 
 get $swagger_base.'/' => sub {
     Dancer::Plugin::Swagger->instance->doc->{schemes} = [ request->scheme ];
-    # user might request /swagger-ui/ initially (Plugin doesn't handle this)
+    # 用户可能最初请求/swagger-ui/（插件不处理这个）
     params->{url} or redirect uri_for($swagger_base)->path;
     send_file( 'swagger-ui/index.html' );
 };
 
-# omg the plugin uses system_path and we don't want to go there
+# 天哪，插件使用system_path，我们不想去那里
 get $swagger_base.'/**' => sub {
     Dancer::Plugin::Swagger->instance->doc->{schemes} = [ request->scheme ];
     send_file( join '/', 'swagger-ui', @{ (splat())[0] } );
 };
 
-# remove empty lines from CSV response
-# this makes writing templates much more straightforward!
+# 从CSV响应中删除空行
+# 这使得编写模板更加直接！
 hook 'after' => sub {
-    my $r = shift; # a Dancer::Response
+    my $r = shift; # 一个Dancer::Response
 
     if ($r->content_type and $r->content_type eq 'text/comma-separated-values') {
         my @newlines = ();
@@ -559,7 +569,7 @@ hook 'after' => sub {
     }
 };
 
-# support for tenancies
+# 支持租户
 any qr{^/t/(?<tenant>[^/]+)/?$} => sub {
     my $capture = captures;
     var tenant => $capture->{'tenant'};

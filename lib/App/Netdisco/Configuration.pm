@@ -15,7 +15,7 @@ use URI::Based;
 
 BEGIN {
   if (setting('include_paths') and ref [] eq ref setting('include_paths')) {
-    # stuff useful locations into @INC
+    # 将有用的位置添加到@INC中
     push @{setting('include_paths')},
          dir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'nd-site-local', 'lib')->stringify
       if (setting('site_local_files'));
@@ -27,8 +27,7 @@ BEGIN {
   no warnings 'redefine';
   use SNMP;
 
-  # hardware exception on macOS at least when translateObj
-  # gets something like '.0.0' passed as arg
+  # 在macOS上至少当translateObj接收到像'.0.0'这样的参数时会出现硬件异常
 
   my $orig_translate = *SNMP::translateObj{'CODE'};
   *SNMP::translateObj = sub {
@@ -38,9 +37,9 @@ BEGIN {
   };
 }
 
-# set up database schema config from simple config vars
+# 从简单配置变量设置数据库模式配置
 if (ref {} eq ref setting('database')) {
-    # override from env for docker
+    # 从环境变量覆盖（用于docker）
 
     setting('database')->{name} =
       ($ENV{NETDISCO_DB_NAME} || $ENV{NETDISCO_DBNAME} || $ENV{PGDATABASE} || setting('database')->{name});
@@ -51,7 +50,7 @@ if (ref {} eq ref setting('database')) {
     my $portnum = ($ENV{NETDISCO_DB_PORT} || $ENV{PGPORT});
     setting('database')->{host} .= (';port='. $portnum)
       if (setting('database')->{host} and $portnum);
-    # at one time we required the user to add port=
+    # 曾经我们要求用户添加port=
     setting('database')->{host} =~ s/port=port=/port=/ if $portnum;
 
     setting('database')->{user} =
@@ -68,8 +67,8 @@ if (ref {} eq ref setting('database')) {
     my $dsn = sprintf 'dbi:Pg:dbname=%s', ($name || '');
     $dsn .= ";host=${host}" if $host;
 
-    # set up the netdisco schema now we have access to the config
-    # but only if it doesn't exist from an earlier config style
+    # 现在我们有配置访问权限，设置netdisco模式
+    # 但只有在早期配置样式中不存在时才设置
     setting('plugins')->{DBIC}->{'default'} ||= {
         dsn  => $dsn,
         user => $user,
@@ -109,19 +108,19 @@ if (ref {} eq ref setting('database')) {
         };
     }
 
-    # and support tenancies by setting what the default schema points to
+    # 通过设置默认模式指向的内容来支持租户
     setting('plugins')->{DBIC}->{'netdisco'}->{'alias'} = 'default';
 
-    # allow override of the default tenancy
+    # 允许覆盖默认租户
     setting('plugins')->{DBIC}->{'default'}
      = setting('plugins')->{DBIC}->{$ENV{NETDISCO_DB_TENANT}}
      if $ENV{NETDISCO_DB_TENANT}
         and $ENV{NETDISCO_DB_TENANT} ne 'netdisco'
         and exists setting('plugins')->{DBIC}->{$ENV{NETDISCO_DB_TENANT}};
 
-    # activate environment variables so that "psql" can be called
-    # and also used by python worklets to connect (to avoid reparsing config)
-    # must happen after tenants as this rewrites env if NETDISCO_DB_TENANT in play
+    # 激活环境变量，以便可以调用"psql"
+    # 也可以被python工作单元使用来连接（避免重新解析配置）
+    # 必须在租户之后发生，因为如果NETDISCO_DB_TENANT在起作用，这会重写环境
     my $default = setting('plugins')->{DBIC}->{'default'};
     if ($default->{dsn} =~ m/dbname=([^;]+)/) {
         $ENV{PGDATABASE} = $1;
@@ -145,52 +144,52 @@ if (ref {} eq ref setting('database')) {
     }
 }
 
-# always set this
+# 总是设置这个
 $ENV{DBIC_TRACE_PROFILE} = 'console';
 
-# override from env for docker
+# 从环境变量覆盖（用于docker）
 config->{'community'} = ($ENV{NETDISCO_RO_COMMUNITY} ?
   [split ',', $ENV{NETDISCO_RO_COMMUNITY}] : config->{'community'});
 config->{'community_rw'} = ($ENV{NETDISCO_RW_COMMUNITY} ?
   [split ',', $ENV{NETDISCO_RW_COMMUNITY}] : config->{'community_rw'});
 
-# if snmp_auth and device_auth not set, add defaults to community{_rw}
+# 如果snmp_auth和device_auth未设置，添加默认值到community{_rw}
 if ((setting('snmp_auth') and 0 == scalar @{ setting('snmp_auth') })
     and (setting('device_auth') and 0 == scalar @{ setting('device_auth') })) {
   config->{'community'} = [ @{setting('community')}, 'public' ];
   config->{'community_rw'} = [ @{setting('community_rw')}, 'private' ];
 }
-# fix up device_auth (or create it from old snmp_auth and community settings)
-# also imports legacy sshcollector config
+# 修复device_auth（或从旧的snmp_auth和community设置创建）
+# 也导入遗留的sshcollector配置
 config->{'device_auth'}
   = [ App::Netdisco::Util::DeviceAuth::fixup_device_auth() ];
 
-# defaults for workers
+# 工作进程的默认值
 setting('workers')->{queue} ||= 'PostgreSQL';
 if ($ENV{ND2_SINGLE_WORKER}) {
   setting('workers')->{tasks} = 1;
   delete config->{'schedule'};
 }
 
-# force skipped DNS resolution, if unset
+# 如果未设置，强制跳过DNS解析
 setting('dns')->{hosts_file} ||= '/etc/hosts';
 setting('dns')->{no} ||= ['fe80::/64','169.254.0.0/16'];
 
-# set max outstanding requests for AnyEvent::DNS
+# 为AnyEvent::DNS设置最大未完成请求数
 $ENV{'PERL_ANYEVENT_MAX_OUTSTANDING_DNS'}
   = setting('dns')->{max_outstanding} || 50;
 $ENV{'PERL_ANYEVENT_HOSTS'} = setting('dns')->{hosts_file};
 
-# load /etc/hosts
+# 加载/etc/hosts
 setting('dns')->{'ETCHOSTS'} = {};
 {
-  # AE::DNS::EtcHosts only works for A/AAAA/SRV, but we want PTR.
-  # this loads+parses /etc/hosts file using AE. dirty hack.
+  # AE::DNS::EtcHosts只适用于A/AAAA/SRV，但我们想要PTR
+  # 这使用AE加载+解析/etc/hosts文件。脏技巧。
   use AnyEvent::Loop;
   use AnyEvent::Socket 'format_address';
   use AnyEvent::DNS::EtcHosts;
   AnyEvent::DNS::EtcHosts::_load_hosts_unless(sub{},AE::cv);
-  no AnyEvent::DNS::EtcHosts; # unimport
+  no AnyEvent::DNS::EtcHosts; # 取消导入
 
   setting('dns')->{'ETCHOSTS'}->{$_} =
     [ map { [ $_ ? (format_address $_->[0]) : '' ] }
@@ -198,12 +197,12 @@ setting('dns')->{'ETCHOSTS'} = {};
     for keys %AnyEvent::DNS::EtcHosts::HOSTS;
 }
 
-# override from env for docker
+# 从环境变量覆盖（用于docker）
 if ($ENV{NETDISCO_DOMAIN}) {
   if ($ENV{NETDISCO_DOMAIN} eq 'discover') {
     delete $ENV{NETDISCO_DOMAIN};
     if (! setting('domain_suffix')) {
-      info 'resolving domain name...';
+      info '正在解析域名...';
       config->{'domain_suffix'} = hostdomain;
     }
   }
@@ -212,21 +211,21 @@ if ($ENV{NETDISCO_DOMAIN}) {
   }
 }
 
-# override SNMP bulkwalk from environment
+# 从环境变量覆盖SNMP bulkwalk
 config->{'bulkwalk_off'} = true
   if (exists $ENV{NETDISCO_SNMP_BULKWALK_OFF} and $ENV{NETDISCO_SNMP_BULKWALK_OFF});
 
-# check user's port_control_reasons
+# 检查用户的port_control_reasons
 
 config->{'port_control_reasons'} =
   config->{'port_control_reasons'} || config->{'system_port_control_reasons'};
 
-# for managing database portctl_roles
+# 用于管理数据库portctl_roles
 
 config->{'portctl_by_role_shadow'}
   = dclone (setting('portctl_by_role') || {});
 
-# convert domain_suffix from scalar or list to regexp
+# 将domain_suffix从标量或列表转换为正则表达式
 
 config->{'domain_suffix'} = [setting('domain_suffix')]
   if ref [] ne ref setting('domain_suffix');
@@ -241,14 +240,14 @@ else {
   config->{'domain_suffix'} = qr//;
 }
 
-# convert expire_devices from single to dict
+# 将expire_devices从单个值转换为字典
 
 if (q{} eq ref setting('expire_devices')) {
   config->{'expire_devices'}
     = { 'group:__ANY__' => setting('expire_devices') };
 }
 
-# convert tacacs from single to lists
+# 将tacacs从单个值转换为列表
 
 if (ref {} eq ref setting('tacacs')
   and exists setting('tacacs')->{'key'}) {
@@ -273,7 +272,7 @@ elsif (ref [] eq ref setting('tacacs')) {
   config->{'tacacs'} = [ @newservers ];
 }
 
-# support unordered dictionaries as if they were a single item list
+# 支持无序字典，就像它们是单个项目列表一样
 
 if (ref {} eq ref setting('device_identity')) {
   config->{'device_identity'} = [ setting('device_identity') ];
@@ -298,7 +297,7 @@ if (ref {} eq ref setting('ignore_deviceports')) {
 }
 else { config->{'ignore_deviceports'} ||= [] }
 
-# copy old ignore_* into new settings
+# 将旧的ignore_*复制到新设置中
 if (scalar @{ config->{'ignore_interfaces'} }) {
   config->{'host_groups'}->{'__IGNORE_INTERFACES__'}
     = [ map { ($_ !~ m/^port:/) ? "port:$_" : $_ } @{ config->{'ignore_interfaces'} } ];
@@ -312,7 +311,7 @@ if (scalar @{ config->{'ignore_notpresent_types'} }) {
     = [ map { ($_ !~ m/^type:/) ? "type:$_" : $_ } @{ config->{'ignore_notpresent_types'} } ];
 }
 
-# copy devices_no and devices_only into others
+# 将devices_no和devices_only复制到其他设置中
 foreach my $name (qw/devices_no devices_only
                     discover_no macsuck_no arpnip_no nbtstat_no
                     discover_only macsuck_only arpnip_only nbtstat_only/) {
@@ -326,14 +325,14 @@ foreach my $name (qw/discover_only macsuck_only arpnip_only nbtstat_only/) {
   push @{setting($name)}, @{ setting('devices_only') };
 }
 
-# legacy config item names
+# 遗留配置项名称
 
-# rename snmp_field_protection to just be field_protection
+# 将snmp_field_protection重命名为field_protection
 config->{'field_protection'} = config->{'snmp_field_protection'}
   if exists config->{'snmp_field_protection'};
 
-# if user has previously configured too_many_devices away from 1000 default,
-# then copy it into netmap_performance_limit_max_devices
+# 如果用户之前将too_many_devices从1000默认值配置为其他值，
+# 则将其复制到netmap_performance_limit_max_devices
 config->{'netmap_performance_limit_max_devices'} =
   config->{'sidebar_defaults'}->{'device_netmap'}->{'too_many_devices'}->{'default'}
   if config->{'sidebar_defaults'}->{'device_netmap'}->{'too_many_devices'}->{'default'}
@@ -346,7 +345,7 @@ config->{'devport_vlan_limit'} =
      and not setting('devport_vlan_limit');
 delete config->{'deviceport_vlan_membership_threshold'};
 
-# portctl_native_vlan used to be called vlanctl
+# portctl_native_vlan以前叫做vlanctl
 config->{'portctl_native_vlan'} ||= config->{'vlanctl'};
 delete config->{'vlanctl'};
 
@@ -354,7 +353,7 @@ config->{'schedule'} = config->{'housekeeping'}
   if setting('housekeeping') and not setting('schedule');
 delete config->{'housekeeping'};
 
-# used to have separate types of worker
+# 以前有不同类型的工作进程
 if (exists setting('workers')->{interactives}
     or exists setting('workers')->{pollers}) {
 
@@ -366,22 +365,22 @@ if (exists setting('workers')->{interactives}
     delete setting('workers')->{interactives};
 }
 
-# moved the timeout setting
+# 移动了timeout设置
 setting('workers')->{'timeout'} = setting('timeout')
   if defined setting('timeout')
      and !defined setting('workers')->{'timeout'};
 
-# 0 for workers max_deferrals and retry_after is like disabling
-# but we need to fake it with special values
+# 工作进程的max_deferrals和retry_after为0就像禁用一样
+# 但我们需要用特殊值来模拟它
 setting('workers')->{'max_deferrals'} ||= (2**30);
 setting('workers')->{'retry_after'}   ||= '100 years';
 
-# schedule expire used to be called expiry
+# schedule expire以前叫做expiry
 setting('schedule')->{expire} ||= setting('schedule')->{expiry}
   if setting('schedule') and exists setting('schedule')->{expiry};
 delete config->{'schedule'}->{'expiry'} if setting('schedule');
 
-# upgrade reports config from hash to list
+# 将报告配置从哈希升级到列表
 if (setting('reports') and ref {} eq ref setting('reports')) {
     config->{'reports'} = [ map {{
         tag => $_,
@@ -389,28 +388,28 @@ if (setting('reports') and ref {} eq ref setting('reports')) {
     }} keys %{ setting('reports') } ];
 }
 
-# add system_reports onto reports
+# 将system_reports添加到reports中
 config->{'reports'} = [ @{setting('system_reports')}, @{setting('reports')} ];
 
-# upgrade bare bind_params to dict
+# 将裸bind_params升级为字典
 foreach my $r ( @{setting('reports')} ) {
     next unless exists $r->{bind_params};
     my $new_bind_params = [ map {ref $_ ? $_ : {param => $_}} @{ $r->{bind_params} } ];
     $r->{'bind_params'} = $new_bind_params;
 }
 
-# set swagger ui location
+# 设置swagger ui位置
 #config->{plugins}->{Swagger}->{ui_dir} =
   #dir(dist_dir('App-Netdisco'), 'share', 'public', 'swagger-ui')->absolute;
 
-# setup helpers for when request->uri_for() isn't available
-# (for example when inside swagger_path())
+# 为request->uri_for()不可用时设置助手
+# （例如在swagger_path()内部时）
 config->{url_base}
   = URI::Based->new((config->{path} eq '/') ? '' : config->{path});
 config->{api_base}
   = config->{url_base}->with('/api/v1')->path;
 
-# device custom_fields with snmp_object creates a hook
+# 带有snmp_object的设备custom_fields创建钩子
 my @new_dcf = ();
 my @new_hooks = @{ setting('hooks') };
 
@@ -422,20 +421,20 @@ foreach my $field (@{ setting('custom_fields')->{'device'} }) {
         next;
     }
 
-    # snmp_object implies JSON content in the field
+    # snmp_object意味着字段中的JSON内容
     $field->{'json_list'} = true;
-    # snmp_object implies user should not edit in the web
+    # snmp_object意味着用户不应该在web中编辑
     $field->{'editable'} = false;
 
     push @new_hooks, {
         type => 'exec',
         event => 'discover',
         with => {
-                            # get JSON format of the snmp_object
+                            # 获取snmp_object的JSON格式
             cmd => (sprintf q![%% ndo %%] show -d '[%% ip %%]' -e %s --quiet!
-                            # this jq will: promote null to [], promote bare string to ["str"], collapse obj to list
+                            # 这个jq将：将null提升为[]，将裸字符串提升为["str"]，将对象折叠为列表
                             .q! | jq -cjM '. // [] | if type=="string" then [.] else . end | [ .[] ] | sort'!
-                            # send the JSON output into device custom_field (action inline)
+                            # 将JSON输出发送到设备custom_field（内联操作）
                             .q! | [%% ndo %%] %s --enqueue -d '[%% ip %%]' -e '@-' --quiet!,
                             $field->{'snmp_object'}, ('cf_'. $field->{'name'})),
         },
@@ -447,7 +446,7 @@ foreach my $field (@{ setting('custom_fields')->{'device'} }) {
     push @new_dcf, $field;
 }
 
-# #1040 change with-nodes to be job hook
+# #1040 将with-nodes更改为作业钩子
 foreach my $action (qw(macsuck arpnip)) {
     push @new_hooks, {
         type => 'exec',
