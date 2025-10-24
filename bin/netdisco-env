@@ -3,22 +3,27 @@
 use strict;
 use warnings;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -27,14 +32,15 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 }
 
-# for netdisco app config
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer qw/:moose :script/;
 
+# 执行传入的命令
 exec $ARGV[0];

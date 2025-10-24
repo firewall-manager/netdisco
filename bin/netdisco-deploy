@@ -3,23 +3,29 @@
 use strict;
 use warnings;
 
+# 启用输出缓冲
 $|++;
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -28,28 +34,34 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 和 $PATH 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 
+  # 将 bin 目录添加到 PATH 环境变量中
   use Config;
   $ENV{PATH} = $FindBin::RealBin . $Config{path_sep} . $ENV{PATH};
 }
 
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer ':script';
 use Dancer::Plugin::DBIC 'schema';
 use Dancer::Plugin::Passphrase;
 use App::Netdisco::Util::Statistics ();
 
+# 显示 Netdisco 版本信息
 info "App::Netdisco $App::Netdisco::VERSION loaded.";
 
+# 要求 Perl 5.10.0 或更高版本
 use 5.010_000;
+# 导入终端用户界面模块
 use Term::UI;
 use Term::ReadLine;
 use Term::ANSIColor;
 
+# 导入文件处理、网络和编码模块
 use Archive::Extract;
 $Archive::Extract::PREFER_BIN = 1;
 use File::Slurper 'read_lines';
@@ -90,6 +102,7 @@ additional steps might be required!
 
 =cut
 
+# 显示部署脚本的欢迎信息和前置条件
 print color 'bold cyan';
 say 'This is the Netdisco 2 deployment script.';
 say '';
@@ -109,28 +122,34 @@ say 'You will be asked to confirm all changes to your system.';
 say '';
 print color 'reset';
 
+# 创建终端读取器并询问用户是否满足前置条件
 my $term = Term::ReadLine->new('netdisco');
 my $bool = $term->ask_yn(
   prompt => 'So, is all of the above in place?', default => 'n',
 );
 
+# 如果用户回答否，则退出脚本
 exit(0) unless $bool;
 
+# 询问用户是否要部署数据库架构
 say '';
 $bool = $term->ask_yn(
   prompt => 'Would you like to deploy the database schema?', default => 'n',
 );
 deploy_db() if $bool;
 
+# 询问用户是否要下载和更新厂商 MAC 前缀（OUI 数据）
 say '';
 $bool = $term->ask_yn(
   prompt => 'Download and update vendor MAC prefixes (OUI data)?', default => 'n',
 );
 deploy_oui() if $bool;
 
+# 询问用户是否要下载和更新 MIB 文件
 say '';
 my $default_mibhome = dir($home, 'netdisco-mibs');
 if (setting('mibhome') and setting('mibhome') ne $default_mibhome) {
+    # 如果配置了自定义 MIB 目录，提供选择
     my $mibhome = $term->get_reply(
       print_me => "MIB home options:",
       prompt   => "Download and update MIB files to...?",
@@ -140,24 +159,30 @@ if (setting('mibhome') and setting('mibhome') ne $default_mibhome) {
     deploy_mibs($mibhome) if $mibhome and $mibhome ne 'Skip this.';
 }
 else {
+    # 使用默认 MIB 目录
     $bool = $term->ask_yn(
       prompt => "Download and update MIB files?", default => 'n',
     );
     deploy_mibs($default_mibhome) if $bool;
 }
 
+# 部署数据库架构的子函数
+# 用途：执行数据库架构部署、更新统计信息、创建初始管理员用户、设置会话密钥
 sub deploy_db {
+  # 执行数据库部署脚本
   system('netdisco-db-deploy') == 0 or die "\n";
   print color 'bold blue';
   say 'DB schema update complete.';
   print color 'reset';
 
+  # 更新统计信息
   print color 'bold blue';
   print 'Updating statistics... ';
   App::Netdisco::Util::Statistics::update_stats();
   say 'done.';
   print color 'reset';
 
+  # 检查密码存储安全性设置
   if (not setting('safe_password_store')) {
       say '';
       print color 'bold red';
@@ -166,6 +191,8 @@ sub deploy_db {
       print color 'reset';
   }
 
+  # 密码生成辅助函数
+  # 用途：根据安全设置生成密码哈希（安全模式使用 bcrypt，否则使用 MD5）
   sub _make_password {
     my $pass = (shift || passphrase->generate_random);
     if (setting('safe_password_store')) {
@@ -176,11 +203,11 @@ sub deploy_db {
     }
   }
 
-  # roll everything back if we're testing
+  # 如果正在测试，则设置事务回滚保护
   my $txn_guard = $ENV{ND2_DB_ROLLBACK}
     ? schema('netdisco')->storage->txn_scope_guard : undef;
 
-  # set up initial admin user
+  # 设置初始管理员用户
   my $users = schema('netdisco')->resultset('User');
   if ($users->search({-bool => 'admin'})->count == 0) {
       say '';
@@ -203,13 +230,15 @@ sub deploy_db {
       print color 'reset';
   }
 
-  # set initial dancer web session cookie key
+  # 设置初始 Dancer Web 会话 Cookie 密钥
   schema('netdisco')->resultset('Session')->find_or_create(
     {id => 'dancer_session_cookie_key', a_session => \'md5(random()::text)'},
     {key => 'primary'},
   );
 }
 
+# 获取用户输入的用户名和密码
+# 用途：从终端读取用户输入，验证非空，递归调用直到输入有效
 sub get_userpass {
   my $upterm = shift;
   my $name = $upterm->get_reply(prompt => 'Username: ');
@@ -223,16 +252,19 @@ sub get_userpass {
   return ($name, $pass);
 }
 
+# 部署 OUI（组织唯一标识符）数据
+# 用途：下载最新的厂商 MAC 地址前缀数据并更新数据库
 sub deploy_oui {
   print color 'bold blue';
   print 'Updating OUI, Manufacturers, Enterprises, and Products... ';
 
+  # 从 GitHub 下载最新的查找表 SQL 文件
   my $latest = 'https://raw.githubusercontent.com/netdisco/upstream-sources/refs/heads/master/bootstrap/netdisco-lookup-tables.sql';
   my $file = file($home, 'netdisco-lookup-tables.sql');
   my $resp = HTTP::Tiny->new->mirror($latest, $file);
 
   if ($resp->{success}) {
-      # by loading App::Netdisco, Configuration has set necessary psql env vars
+      # 通过加载 App::Netdisco，配置已设置了必要的 psql 环境变量
       system("psql -X -v ON_ERROR_STOP=0 -v ON_ERROR_ROLLBACK=on -q -f ${file}");
       unlink $file;
       say 'done.';
@@ -245,10 +277,13 @@ sub deploy_oui {
   print color 'reset';
 }
 
+# 部署 MIB（管理信息库）文件
+# 用途：下载最新的 Netdisco MIB 包并解压到指定目录，更新 SNMP 浏览器
 sub deploy_mibs {
   my $mibhome = dir(shift); # /path/to/netdisco-mibs
   my $fail = 0;
 
+  # 获取最新版本的 MIB 包下载链接
   my $latest = 'https://github.com/netdisco/netdisco-mibs/releases/latest';
   my $resp = HTTP::Tiny->new->get($latest);
 
@@ -259,9 +294,11 @@ sub deploy_mibs {
     $resp = HTTP::Tiny->new->mirror($url, $file);
 
     if ($resp->{success}) {
+      # 解压 MIB 包到目标目录
       my $ae = Archive::Extract->new(archive => $file, type => 'tgz');
       $ae->extract(to => $mibhome->parent->stringify);
 
+      # 重命名解压后的目录为标准名称
       my $from = file($mibhome->parent->stringify, "netdisco-mibs-$ver");
       my $to = file($mibhome->parent->stringify, 'netdisco-mibs');
 
@@ -283,6 +320,7 @@ sub deploy_mibs {
     print color 'bold blue';
     say 'MIBs update complete.';
 
+    # 如果数据库中已有 SNMP 对象，则更新 SNMP 浏览器
     if (schema('netdisco')->resultset('SNMPObject')->count) {
       print 'Updating SNMP Browser... ';
       system('netdisco-do loadmibs --quiet');

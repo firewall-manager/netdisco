@@ -3,22 +3,27 @@
 use strict;
 use warnings;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -27,19 +32,22 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 和 $PATH 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 
+  # 将 bin 目录添加到 PATH 环境变量中
   use Config;
   $ENV{PATH} = $FindBin::RealBin . $Config{path_sep} . $ENV{PATH};
 }
 
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer ':script';
 use Dancer::Plugin::DBIC 'schema';
 
+# 导入异常处理模块
 use Try::Tiny;
 
 =head1 NAME
@@ -93,9 +101,11 @@ Version 17 onwards deploys schema upgrades for Netdisco 2
 
 =cut
 
+# 获取数据库架构和 PostgreSQL 版本信息
 my $schema = schema('netdisco');
 my $pg_ver = $schema->storage->dbh->{pg_server_version};
 
+# 检查 PostgreSQL 版本是否满足最低要求（9.6）
 if ($pg_ver and $pg_ver < 90600) {
     printf "\nFATAL: minimum PostgreSQL version for Netdisco is 9.6, you have %s\n",
       (join '.', reverse map {scalar reverse} unpack("(A2)*", reverse $pg_ver));
@@ -107,6 +117,7 @@ if ($pg_ver and $pg_ver < 90600) {
     die "\n";
 }
 
+# 如果指定了 --redeploy-all 参数，则删除版本表以强制重新部署
 if (scalar @ARGV and $ARGV[0] and $ARGV[0] eq '--redeploy-all') {
     $schema->storage->dbh_do(
       sub {
@@ -116,14 +127,13 @@ if (scalar @ARGV and $ARGV[0] and $ARGV[0] eq '--redeploy-all') {
     );
 }
 
-# installs the dbix_class_schema_versions table with version "1"
-# which corresponds to an empty schema
+# 如果数据库版本不存在，则安装版本 1（对应空架构）
 if (not $schema->get_db_version) {
     $schema->install(1);
     $schema->storage->disconnect;
 }
 
-# test for existing schema at public release version, set v=2 if so
+# 测试现有架构是否为公共发布版本，如果是则设置为版本 2
 try {
     $schema->storage->dbh_do(sub {
       my ($storage, $dbh) = @_;
@@ -135,16 +145,16 @@ try {
     $schema->storage->disconnect;
 };
 
-# roll everything back if we're testing
+# 如果正在测试，则设置事务回滚保护
 my $txn_guard = $ENV{ND2_DB_ROLLBACK}
   ? schema('netdisco')->storage->txn_scope_guard : undef;
 
-# upgrade from whatever dbix_class_schema_versions says, to $VERSION
-# except that get_db_version will be 0 at first deploy
+# 从当前数据库版本升级到目标版本
+# 注意：首次部署时 get_db_version 将为 0
 my $db_version = ($schema->get_db_version || 1);
 my $target_version = $schema->schema_version;
 
-# one step at a time, in case user has applied local changes already
+# 逐步升级，以防用户已经应用了本地更改
 for (my $i = $db_version; $i < $target_version; $i++) {
     my $next = $i + 1;
     try {
@@ -154,11 +164,12 @@ for (my $i = $db_version; $i < $target_version; $i++) {
         warn "Error: $_"
           if $_ !~ m/(does not exist|already exists)/;
 
-        # set row in dbix_class_schema_versions table
+        # 在 dbix_class_schema_versions 表中设置版本行
         $schema->_set_db_version({version => $next})
           if $schema->get_db_version < $next;
     };
 }
 
+# 如果设置了回滚标志，则取消事务保护
 undef $txn_guard if $ENV{ND2_DB_ROLLBACK};
 exit 0;

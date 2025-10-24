@@ -3,22 +3,27 @@
 use strict;
 use warnings;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -27,51 +32,57 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 }
 
-# for netdisco app config
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer qw/:moose :script/;
 
+# 导入异常处理、文档使用、对象检查和文件处理模块
 use Try::Tiny;
 use Pod::Usage;
 use Scalar::Util 'blessed';
 use File::Slurper qw/read_lines read_text/;
 use NetAddr::IP qw/:rfc3021 :lower/;
 
+# 导入 Netdisco 后端作业、作业队列和设备工具模块
 use App::Netdisco::Backend::Job;
 use App::Netdisco::JobQueue 'jq_insert';
 use App::Netdisco::Util::Device 'get_device';
 
+# 配置命令行参数解析
 use Getopt::Long;
 Getopt::Long::Configure ("bundling");
 
+# 声明命令行参数变量
 my ($port, $extra, $debug, $quiet, $queue_only, $force, $dryrun, $rollback);
 my ($devices, $infotrace, $snmptrace, $sqltrace) = ([], 0, 0, 0);
 
+# 解析命令行参数
 my $result = GetOptions(
-  'device|d=s@' => \$devices,
-  'port|p=s'   => \$port,
-  'extra|e=s'  => \$extra,
-  'debug|D'    => \$debug,
-  'enqueue'    => \$queue_only,
-  'force'      => \$force,
-  'dry-run'    => \$dryrun,
-  'quiet'      => \$quiet,
-  'rollback|R' => \$rollback,
-  'infotrace|I+' => \$infotrace,
-  'snmptrace|S+' => \$snmptrace,
-  'sqltrace|Q+'  => \$sqltrace,
+  'device|d=s@' => \$devices,      # 设备列表
+  'port|p=s'   => \$port,          # 端口
+  'extra|e=s'  => \$extra,         # 额外参数
+  'debug|D'    => \$debug,         # 调试模式
+  'enqueue'    => \$queue_only,    # 仅入队
+  'force'      => \$force,         # 强制模式
+  'dry-run'    => \$dryrun,        # 试运行
+  'quiet'      => \$quiet,         # 静默模式
+  'rollback|R' => \$rollback,      # 回滚模式
+  'infotrace|I+' => \$infotrace,   # 信息跟踪
+  'snmptrace|S+' => \$snmptrace,   # SNMP 跟踪
+  'sqltrace|Q+'  => \$sqltrace,   # SQL 跟踪
 ) or pod2usage(
   -msg => 'error: bad options',
   -verbose => 0,
   -exitval => 1,
 );
 
+# 如果是试运行模式，设置环境变量并启用调试
 if ($dryrun) {
   $ENV{ND2_WORKER_ROLL_CALL} = 1;
   $debug = 1;
@@ -88,12 +99,12 @@ $ENV{ND2_DO_FORCE} ||= $force;
 $ENV{ND2_DO_QUIET} ||= $quiet;
 $ENV{ND2_DB_ROLLBACK} ||= $rollback;
 
-# reconfigure logging to force console output
+# 重新配置日志记录以强制控制台输出
 Dancer::Logger->init('console', $CONFIG);
 
 info "App::Netdisco version $App::Netdisco::VERSION loaded.";
 
-# get requested action
+# 获取请求的操作
 (my $action = shift @ARGV) =~ s/^set_//
   if scalar @ARGV;
 
@@ -105,35 +116,44 @@ unless ($action) {
     );
 }
 
-# create worker (placeholder object for the action runner)
+# 创建工作进程（操作运行器的占位符对象）
 {
   package MyWorker;
   use Moo;
   with 'App::Netdisco::Worker::Runner';
 }
 
-# list of NetAddr::IP instances resolved from the -d params
+# 从 -d 参数解析的 NetAddr::IP 实例列表
 my @hostlist = ();
 
+# 测试和解析设备地址
+# 用途：验证设备地址格式，解析 IP 地址或网络前缀，生成主机列表
 sub _test_and_resolve_device {
   my $d = shift or return;
+  # 去除空白字符
   $d =~ s/\s//g;
   return unless $d;
 
+  # 尝试解析为网络地址对象
   my $net = NetAddr::IP->new($d);
   if (!$net or $net->num == 0 or $net->addr eq '0.0.0.0') {
       error sprintf 'unable to understand as host, IP, or prefix: %s', $d;
       exit 1;
   }
 
+  # 将解析后的主机地址添加到主机列表
   push @hostlist, $net->hostenum;
   return;
 }
 
+# 处理设备参数列表
+# 用途：解析设备参数，支持直接设备地址、文件列表或网络前缀
 foreach my $device (@$devices) {
+  # 如果操作目标是网络前缀，直接添加到主机列表
   if (scalar grep {$action eq $_} @{ setting('job_targets_prefix') }) {
       push @hostlist, $device;
   }
+  # 如果设备参数是文件，读取文件内容
   elsif (-f $device) {
       debug sprintf 'opening file for reading hosts/IPs: %s', $device;
       my @dlist = read_lines $device;
@@ -143,27 +163,34 @@ foreach my $device (@$devices) {
           exit 2;
       }
 
+      # 处理文件中的每一行
       foreach my $entry (@dlist) {
           _test_and_resolve_device($entry);
       }
   }
+  # 否则直接处理设备地址
   else {
       _test_and_resolve_device($device);
   }
 }
 
+# 初始化作业规格列表和退出状态
 my @job_specs = ();
 my $exitstatus =  0;
 
+# 检查作业数量限制（除非使用 --force 参数）
 if (not $force and scalar @hostlist > 512) {
     info sprintf '%s: aborted - unwise to attempt %s jobs at once', $action, (scalar @hostlist);
     exit 1;
 }
 
+# 处理需要额外数据的操作（自定义字段、MAC 收集、ARP 收集）
 if ($action =~ m/^(?:cf_|macsuck|arpnip)/ and $extra) {
+    # 从标准输入读取数据
     if ($extra eq '@-' or ($quiet and $extra eq '-')) {
         $extra = do { local $/; <STDIN> };
     }
+    # 从文件读取数据
     elsif ($extra =~ m/^@(.+)/) {
         my $filename = $1;
         if (-f $filename) {
@@ -176,9 +203,10 @@ if ($action =~ m/^(?:cf_|macsuck|arpnip)/ and $extra) {
     }
 }
 
-# some actions do not take a device parameter
+# 某些操作不需要设备参数
 @hostlist = (undef) if 0 == scalar @hostlist;
 
+# 为每个主机创建作业规格
 foreach my $host (@hostlist) {
   push @job_specs, {
     action => $action,
@@ -189,24 +217,31 @@ foreach my $host (@hostlist) {
   };
 }
 
+# 根据是否仅入队执行不同逻辑
 if ($queue_only) {
+  # 仅将作业加入队列
   jq_insert( \@job_specs );
   info sprintf '%s: queued %s jobs at %s',
     $action, (scalar @job_specs), scalar localtime;
 }
 else {
+  # 立即执行作业
   foreach my $spec (@job_specs) {
     my $worker = MyWorker->new();
     my $job = App::Netdisco::Backend::Job->new({ job => 0, %$spec });
+    
+    # 为特定操作设置最小年龄为 0
     $CONFIG->{$1."_min_age"} = 0 if $job->action =~ m/^(arpnip|macsuck|discover)$/;
+    # 如果使用强制模式，忽略所有层组
     $CONFIG->{ignore_layers} = 'group:__ANY__' if $force;
 
+    # 构建操作文本显示
     my $actiontext = (
       ($job->device ? ('['.$job->device.']') : '') .
       ($job->action eq 'show' ? ('/'. ($job->subaction || 'interfaces')) : '')
     );
 
-    # do job
+    # 执行作业
     try {
       info sprintf '%s: %s started at %s',
         $action, $actiontext, scalar localtime;
@@ -217,6 +252,7 @@ else {
       $job->log("error running job: $_");
     };
 
+    # 检查作业是否有效
     if ($job->log eq 'failed to report from any worker!' and not $job->only_namespace) {
       pod2usage(
         -msg => (sprintf 'error: %s is not a valid action (no worker status recorded)', $action),
@@ -225,6 +261,7 @@ else {
       );
     }
 
+    # 记录作业完成状态
     info sprintf '%s: finished at %s', $action, scalar localtime;
     info sprintf '%s: status %s: %s', $action, $job->status, $job->log;
     $exitstatus = 1 if !$exitstatus and $job->status ne 'done';

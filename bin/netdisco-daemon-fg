@@ -3,16 +3,21 @@
 use strict;
 use warnings;
 
+# 使用 FindBin 模块来定位脚本所在目录
 use FindBin;
 FindBin::again();
 
+# 导入文件系统操作模块
 use File::Spec;
 use Cwd 'realpath';
 
+# 获取当前脚本的完整路径和用户ID
 my $me = realpath(File::Spec->catfile($FindBin::RealBin, $FindBin::RealScript));
 my $uid = (stat($me))[4] || 0;
+# 设置 Netdisco 主目录，优先级：NETDISCO_HOME > 用户主目录 > HOME
 my $home = ($ENV{NETDISCO_HOME} || (getpwuid($uid))[7] || $ENV{HOME});
 
+# 获取前端后端程序路径并执行
 my $backend =
   File::Spec->catfile((File::Spec->splitpath( $me ))[1], 'netdisco-backend-fg');
 exec {$backend} 'netdisco-backend-fg', @ARGV;

@@ -3,25 +3,31 @@
 use strict;
 use warnings;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 获取当前脚本的完整路径和用户ID
   my $me = File::Spec->catfile($FindBin::RealBin, $FindBin::RealScript);
   my $uid = (stat($me))[4] || 0;
 
+  # 设置 Netdisco 主目录，优先级：NETDISCO_HOME > 用户主目录 > HOME
   $home = ($ENV{NETDISCO_HOME} || (getpwuid($uid))[7] || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在 bin 目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::Bin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -30,11 +36,12 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 和 $PATH 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 
+  # 将 bin 目录添加到 PATH 环境变量中
   use Config;
   $ENV{PATH} = $FindBin::RealBin . $Config{path_sep} . $ENV{PATH};
 }
@@ -56,7 +63,7 @@ my $result = GetOptions(
 use App::Netdisco::Environment;
 my $config = ($ENV{PLACK_ENV} || $ENV{DANCER_ENVIRONMENT}) .'.yml';
 
-# make sure there is a config file in place
+# 确保配置文件存在
 my $template_config = file($ENV{DANCER_CONFDIR}, 'environments', $config);
 my $app_config = file($ENV{DANCER_ENVDIR}, $config);
 if (! -e $app_config and -e $template_config) {
@@ -83,7 +90,7 @@ chown $uid, $gid, $log_dir;
 my $pid_file = file($home, 'netdisco-web.pid');
 my $log_file = file($log_dir, 'netdisco-web.log');
 
-# change ownership of key files to be netdisco user
+# 更改关键文件的所有者为 netdisco 用户
 foreach my $file ($pid_file, $log_file) {
     unless (-e $file) {
         sysopen my $fh, $file, O_WRONLY|O_CREAT|O_NONBLOCK|O_NOCTTY;
@@ -93,7 +100,7 @@ foreach my $file ($pid_file, $log_file) {
     chown $uid, $gid, $file;
 }
 
-# clean old web sessions
+# 清理旧的 Web 会话
 my $sdir = dir($home, 'netdisco-web-sessions')->stringify;
 unlink glob file($sdir, '*');
 
@@ -113,27 +120,33 @@ Daemon::Control->new({
                                          : (uid => $uid, gid => $gid)),
 })->run;
 
-# the guts of this are borrowed from Plack::Loader::Restarter - many thanks!!
+# 此部分的核心逻辑借鉴自 Plack::Loader::Restarter - 非常感谢！！
 
+# Web 服务器重启器
+# 用途：监控配置文件变化，自动重启 Web 服务器进程，处理日志轮转
 sub restarter {
   my ($daemon, @program_args) = @_;
 
+  # 启动子进程
   my $child = fork_and_start($daemon, @program_args);
   exit(1) unless $child;
 
+  # 创建文件系统监控器，监控配置目录和日志目录
   my $watcher = Filesys::Notify::Simple->new([$ENV{DANCER_ENVDIR}, $log_dir]);
   warn "config watcher: watching $ENV{DANCER_ENVDIR} for updates.\n";
 
-  # TODO: starman also supports TTIN,TTOU,INT,QUIT
+  # TODO: starman 还支持 TTIN,TTOU,INT,QUIT 信号
   local $SIG{HUP}  = sub { signal_child('HUP',  $child); };
   local $SIG{TERM} = sub { signal_child('TERM', $child); exit(0); };
 
+  # 主监控循环
   while (1) {
       my @restart;
 
-      # this is blocking
+      # 这是阻塞调用，等待文件变化事件
       $watcher->wait(sub {
           my @events = @_;
+          # 只关注日志文件或配置文件的变化
           @events = grep {$_->{path} eq $log_file or
                           file($_->{path})->basename eq $config} @events;
           return unless @events;
@@ -143,16 +156,18 @@ sub restarter {
       my ($hupit, $rotate) = (0, 0);
       next unless @restart;
 
+      # 处理文件变化事件
       foreach my $f (@restart) {
           if ($f->{path} eq $log_file) {
-              ++$rotate;
+              ++$rotate;  # 日志文件变化，需要轮转日志
           }
           else {
               warn "-- $f->{path} updated.\n";
-              ++$hupit;
+              ++$hupit;   # 配置文件变化，需要重启进程
           }
       }
 
+      # 根据事件类型执行相应操作
       rotate_logs($child) if $rotate;
       if ($hupit) {
           signal_child('TERM', $child);
@@ -163,12 +178,14 @@ sub restarter {
   }
 }
 
+# 创建子进程并启动 Starman Web 服务器
+# 用途：fork 子进程并执行 Starman Web 服务器
 sub fork_and_start {
   my ($daemon, @starman_args) = @_;
   my $pid = fork;
   die "Can't fork: $!" unless defined $pid;
 
-  if ($pid == 0) { # child
+  if ($pid == 0) { # 子进程
       $daemon->redirect_filehandles;
       exec( 'starman', @starman_args );
   }
@@ -177,6 +194,8 @@ sub fork_and_start {
   }
 }
 
+# 向子进程发送信号
+# 用途：向 Web 服务器子进程发送信号并等待其结束
 sub signal_child {
   my ($signal, $pid) = @_;
   return unless $signal and $pid;
@@ -185,25 +204,31 @@ sub signal_child {
   waitpid($pid, 0);
 }
 
+# 轮转日志文件
+# 用途：当日志文件超过指定大小时，进行日志轮转，避免日志文件过大
 sub rotate_logs {
   my $child = shift;
 
+  # 检查日志文件是否存在且超过指定大小
   return unless (-f $log_file) and
     ((-s $log_file) > ($logsize * 1024768));
 
+  # 获取所有现有的日志轮转文件
   my @files = grep { /$log_file\.\d+/ } glob file($log_dir, '*');
+  # 按文件名倒序排列，处理日志轮转
   foreach my $f (sort { $b cmp $a } @files) {
       next unless $f =~ m/$log_file\.(\d+)$/;
       my $pos = $1;
+      # 删除最旧的日志文件
       unlink $f if $pos == ($logfiles - 1);
       my $next = $pos + 1;
       (my $newf = $f) =~ s/\.$pos$/.$next/;
       rename $f, $newf;
   }
 
-  # if the log file's about 10M then the race condition in copy/truncate
-  # has a low risk of data loss. if the file's larger, then we rename and
-  # kill.
+  # 如果日志文件大约 10M，则复制/截断过程中的竞争条件
+  # 数据丢失的风险较低。如果文件更大，则重命名并
+  # 终止进程。
   if ((-s $log_file) > (12 * 1024768)) {
       rename $log_file, $log_file .'.1';
       signal_child('HUP', $child);

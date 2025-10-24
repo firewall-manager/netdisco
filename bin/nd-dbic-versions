@@ -3,21 +3,24 @@
 use strict;
 use warnings;
 
+# 使用 FindBin 模块来定位脚本所在目录
 use FindBin;
 FindBin::again();
 use Path::Class 'dir';
 
 BEGIN {
-  # stuff useful locations into @INC
+  # 将有用的库路径添加到 @INC 中，以便能够找到 Netdisco 的模块
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 }
 
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer ':script';
 use Dancer::Plugin::DBIC 'schema';
 
+# 导入 Netdisco 数据库模块和命令行参数处理模块
 use App::Netdisco::DB;
 use Getopt::Long;
 
@@ -56,9 +59,11 @@ Run this script with "C<-p $current_db_version>".
 
 =cut
 
+# 获取 SQL 文件存储目录和当前架构版本
 my $sql_dir = $App::Netdisco::DB::schema_versions_dir;
 my $version = schema('netdisco')->schema_version;
 
+# 解析命令行参数
 my ( $preversion, $help );
 GetOptions(
   'p|preversion:s'  => \$preversion,
@@ -66,21 +71,21 @@ GetOptions(
   print <<ENDHELP;
     $0 [-p <version>]
 
-    This script creates SQL DDL files of the Netdisco database schema.
+    此脚本创建 Netdisco 数据库架构的 SQL DDL 文件。
 
-    If called without any CLI options, it makes one SQL DDL file which will
-    initialize the complete schema to the current DBIx::Class specification.
+    如果不带任何命令行选项调用，它将创建一个 SQL DDL 文件，该文件将
+    完整的架构初始化为当前的 DBIx::Class 规范。
 
-    If called with the "-p <version>" option, upgrade SQL DDL command files
-    are created between the specified version and the current DBIx::Class
-    specification.
+    如果使用 "-p <version>" 选项调用，则会在指定版本和当前 DBIx::Class
+    规范之间创建升级 SQL DDL 命令文件。
 
-    SQL DDL files are stored in:
+    SQL DDL 文件存储在:
 $sql_dir
 ENDHELP
   exit(1);
 };
 
+# 创建 DDL 目录，生成 PostgreSQL 架构文件
 schema('netdisco')->create_ddl_dir(
   'PostgreSQL', $version, $sql_dir, $preversion );
 

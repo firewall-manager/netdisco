@@ -3,50 +3,68 @@
 use strict;
 use warnings;
 
+# 检查是否直接运行此脚本，如果是则提示正确的运行方式
 BEGIN {
   if ($ENV{_} and $ENV{_} =~ m/netdisco-web-fg$/) {
       die "You probably want: '~/bin/localenv starman $0 --workers=1 --disable-keepalive'\n";
   }
 }
 
+# 使用 FindBin 模块来定位脚本所在目录
 use FindBin;
 FindBin::again();
 use Path::Class 'dir';
 
 BEGIN {
-  # stuff useful locations into @INC
+  # 将有用的库路径添加到 @INC 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 
+  # 添加额外的库路径（从环境变量 NETDISCO_INC 获取）
   unshift @INC,
     split m/:/, ($ENV{NETDISCO_INC} || '');
 }
 
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer;
 BEGIN {
+  # 显示 Netdisco Web 版本信息
   warning sprintf "App::Netdisco %s web", ($App::Netdisco::VERSION || 'HEAD');
 }
 
+# 配置 Plack 中间件栈
+# 用途：设置 Web 应用的安全头、静态文件处理、缓存和调试功能
 set plack_middlewares => [
+  # 反向代理中间件，处理代理请求
   ['Plack::Middleware::ReverseProxy'],
+  
+  # 设置 X-Frame-Options 安全头，防止点击劫持攻击
   [ Headers => (
       set => ['X-Frame-Options' => setting('HTTP-Header-X-Frame-Options')],
   )],
+  
+  # 设置内容安全策略头，防止 XSS 攻击
   [ Headers => (
       set => ['Content-Security-Policy' => setting('HTTP-Header-Content-Security-Policy')],
   )],
+  
+  # 设置静态资源缓存过期时间（JavaScript、CSS、图片、字体文件）
   [ Expires => (
       content_type => [qr{^application/javascript}, qr{^text/css}, qr{image}, qr{font}],
       expires => 'access plus 1 day',
   )],
+  
+  # 静态文件处理中间件，直接提供静态资源
   [ Static => (
       path => qr{^/(?:javascripts|css|font|images)/},
       root => $ENV{DANCER_PUBLIC},
       pass_through => 1,
   )],
-  # install Dancer::Debug for this...
+  
+  # 调试中间件（仅在调试模式下启用）
+  # 为此安装 Dancer::Debug...
   (
     $ENV{DANCER_DEBUG} ?
       [ Debug => (
@@ -56,10 +74,14 @@ set plack_middlewares => [
   )
 ];
 
+# 导入 Netdisco Web 应用和 Plack 构建器
 use App::Netdisco::Web;
 use Plack::Builder;
 
+# 获取应用路径（默认为根路径）
 my $path = (setting('path') || '/');
+
+# 构建 Plack 应用，将 Netdisco Web 应用挂载到指定路径
 builder { mount $path => dance };
 
 =head1 NAME

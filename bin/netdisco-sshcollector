@@ -3,22 +3,27 @@
 use warnings;
 use strict;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -27,18 +32,21 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 和 $PATH 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 
+  # 添加额外的库路径（从环境变量 NETDISCO_INC 获取）
   unshift @INC,
     split m/:/, ($ENV{NETDISCO_INC} || '');
 
+  # 将 bin 目录添加到 PATH 环境变量中
   use Config;
   $ENV{PATH} = $FindBin::RealBin . $Config{path_sep} . $ENV{PATH};
 }
 
+# 导入 Netdisco 应用和节点处理工具
 use App::Netdisco;
 use App::Netdisco::Util::Node qw/check_mac store_arp/;
 use App::Netdisco::Util::FastResolver 'hostnames_resolve_async';
@@ -71,10 +79,10 @@ $CONFIG->{logger} = 'console';
 $CONFIG->{log} = ($debug ? 'debug' : 'info');
 $ENV{DBIC_TRACE} ||= $sqltrace;
 
-# reconfigure logging to force console output
+# 重新配置日志记录以强制控制台输出
 Dancer::Logger->init('console', $CONFIG);
 
-# silent exit unless explicitly requested
+# 除非明确请求，否则静默退出（此脚本已弃用）
 exit(0) unless setting('use_legacy_sshcollector');
 
 if ($opensshdebug){
@@ -87,26 +95,33 @@ $stats{entry} = 0;
 
 exit main();
 
+# SSH 收集器主函数
+# 用途：从配置的设备列表中收集 ARP 数据，使用多进程并行处理
 sub main {
+    # 获取 SSH 收集器配置列表
     my @input = @{ setting('sshcollector') };
 
+    # 如果指定了特定设备，则只处理该设备
     if ($device){
         @input = grep{ ($_->{hostname} && $_->{hostname} eq $device) 
             || ($_->{ip} && $_->{ip} eq $device) } @input; 
     }
 
-    #one-line Fisher-Yates from https://www.perlmonks.org/index.pl?node=Array%20One-Liners
+    # 使用 Fisher-Yates 算法随机打乱设备列表（来自 PerlMonks 的一行实现）
     my ($i,$j) = (0);
     @input[-$i,$j] = @input[$j,-$i] while $j = rand(@input - $i), ++$i < @input;
 
+    # 使用 MCE 多进程循环处理设备列表
     my @mce_result = mce_loop {
         my ($mce, $chunk_ref, $chunk_id) = @_;
         my $host = $chunk_ref->[0];
 
+        # 确定主机标签（优先使用主机名，否则使用 IP）
         my $hostlabel = (!defined $host->{hostname} or $host->{hostname} eq "-")
             ? $host->{ip} : $host->{hostname};
 
         if ($hostlabel) {
+            # 创建 SSH 连接
             my $ssh = Net::OpenSSH->new(
                 $hostlabel,
                 user => $host->{user},
@@ -120,17 +135,20 @@ sub main {
                 ],
             );
 
-           
+            # 检查 SSH 连接是否成功
             if ($ssh->error){ 
                 warning "WARNING: Couldn't connect to <$hostlabel> - " . $ssh->error;
             }else{
+                # 收集处理结果
                 MCE->gather( process($hostlabel, $ssh, $host) );
             }
         }
     } \@input;
 
+    # 如果没有结果，直接返回
     return 0 unless scalar @mce_result;
 
+    # 处理收集到的 ARP 条目
     foreach my $host (@mce_result) {
         $stats{host}++;
         info sprintf ' [%s] arpnip - retrieved %s entries',
@@ -138,43 +156,57 @@ sub main {
         store_arpentries($host->[1]);
     }
 
+    # 显示处理统计信息
     info sprintf 'arpnip - processed %s ARP Cache entries from %s devices',
         $stats{entry}, $stats{host};
     return 0;
 }
 
+# 处理单个设备的 ARP 数据收集
+# 用途：根据设备平台类型加载相应的处理类，收集 ARP 表数据并解析主机名
 sub process {
     my ($hostlabel, $ssh, $args) = @_;
 
+    # 构建平台特定的处理类名
     my $class = "App::Netdisco::SSHCollector::Platform::".$args->{platform};
     Module::Load::load $class;
 
+    # 创建平台处理对象并收集 ARP 条目
     my $device = $class->new();
     my $arpentries = [ $device->arpnip($hostlabel, $ssh, $args) ];
 
+    # 调试：打印 ARP 条目
     # debug p $arpentries;
     if (not scalar @$arpentries) {
         warning "WARNING: no entries received from <$hostlabel>";
     }
+    
+    # 异步解析主机名
     hostnames_resolve_async($arpentries);
     return [$hostlabel, $arpentries];
 }
 
+# 存储 ARP 条目到数据库
+# 用途：验证 MAC 地址有效性，过滤特殊地址，将有效的 ARP 条目存储到 Netdisco 数据库
 sub store_arpentries {
     my ($arpentries) = @_;
 
     foreach my $arpentry ( @$arpentries ) {
-        # skip broadcast/vrrp/hsrp and other wierdos
+        # 跳过广播/VRRP/HSRP 和其他特殊地址
         next unless check_mac( $arpentry->{mac} );
 
+        # 记录存储的 ARP 条目
         debug sprintf '  arpnip - stored entry: %s / %s',
             $arpentry->{mac}, $arpentry->{ip};
+        
+        # 将 ARP 条目存储到数据库
         store_arp({
             node => $arpentry->{mac},
             ip => $arpentry->{ip},
             dns => $arpentry->{dns},
         });
 
+        # 更新统计计数器
         $stats{entry}++;
     }
 }

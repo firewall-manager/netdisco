@@ -3,22 +3,27 @@
 use strict;
 use warnings;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -27,19 +32,22 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 和 $PATH 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 }
 
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer ':script';
 use Dancer::Plugin::DBIC 'schema';
 
+# 导入 Netdisco 作业队列和设备工具模块
 use App::Netdisco::JobQueue 'jq_insert';
 use App::Netdisco::Util::Device 'get_device';
 
+# 导入网络地址处理和异常处理模块
 use NetAddr::IP::Lite ':lower';
 use Try::Tiny;
 
@@ -70,33 +78,40 @@ C<discover> job queued for them.
 
 =cut
 
+# 从命令行参数获取拓扑文件路径
 my $file = $ARGV[0];
 die "missing topology file name on command line\n" unless $file;
 
 chomp $file;
-my $dev = undef; # current device
+my $dev = undef; # 当前设备
 print "Loading topology information from $file\n";
 
+# 打开拓扑文件进行读取
 open (DEVS,'<', $file)
   or die "topo_load_file($file): $!\n";
 
+# 逐行读取拓扑文件
 while (my $line = <DEVS>) {
     chomp $line;
+    # 处理注释行（以 # 开头，但允许转义的 #）
     $line =~ s/(?<!\\)#.*//;
     $line =~ s/\\#/#/g;
+    # 去除行首行尾空白字符
     $line =~ s/^\s+//g;
     $line =~ s/\s+$//g;
     next if $line =~ m/^\s*$/;
     
+    # 处理链接行（格式：link:left-port,right-device,right-port）
     if ($line =~ m/^link:(.*)/){
         my ($from_port, $to, $to_port) = split(m/,/, $1);
 
+        # 检查是否已定义当前设备
         unless (defined $dev) {
             print " Skipping $line. No device yet defined!\n";
             next;
         }
 
-        # save Link info
+        # 保存链接信息到数据库
         try {
             schema('netdisco')->txn_do(sub {
               schema('netdisco')->resultset('Topology')->create({
@@ -109,13 +124,15 @@ while (my $line = <DEVS>) {
         };
     }
     elsif ($line =~ /^alias:(.*)/) {
-        # ignore aliases
+        # 忽略别名行
     }
     else {
+        # 处理设备行（IP地址或主机名）
         my $ip = NetAddr::IP::Lite->new($line)
           or next;
         next if $ip->addr eq '0.0.0.0';
 
+        # 设置当前设备并为其创建发现作业
         $dev = get_device($ip->addr)->ip;
         print " Set device: $dev\n";
 

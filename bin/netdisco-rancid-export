@@ -3,22 +3,27 @@
 use strict;
 use warnings;
 
+# 声明全局变量 $home 用于存储 Netdisco 主目录
 our $home;
 
 BEGIN {
   use FindBin;
   FindBin::again();
 
+  # 设置 Netdisco 主目录，优先使用环境变量 NETDISCO_HOME，否则使用 HOME
   $home = ($ENV{NETDISCO_HOME} || $ENV{HOME});
 
-  # try to find a localenv if one isn't already in place.
+  # 尝试查找 localenv 脚本，如果不存在 PERL_LOCAL_LIB_ROOT 环境变量
   if (!exists $ENV{PERL_LOCAL_LIB_ROOT}) {
       use File::Spec;
+      # 首先在脚本目录中查找 localenv
       my $localenv = File::Spec->catfile($FindBin::RealBin, 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
+      # 然后在用户目录中查找 localenv
       $localenv = File::Spec->catfile($home, 'perl5', 'bin', 'localenv');
       exec($localenv, $0, @ARGV) if -f $localenv;
 
+      # 如果找不到 localenv 且没有 PERLBREW_PERL 环境变量，则退出
       die "Sorry, can't find libs required for App::Netdisco.\n"
         if !exists $ENV{PERLBREW_PERL};
   }
@@ -27,24 +32,28 @@ BEGIN {
 BEGIN {
   use Path::Class;
 
-  # stuff useful locations into @INC and $PATH
+  # 将有用的库路径添加到 @INC 和 $PATH 中
   unshift @INC,
     dir($FindBin::RealBin)->parent->subdir('lib')->stringify,
     dir($FindBin::RealBin, 'lib')->stringify;
 
+  # 将 bin 目录添加到 PATH 环境变量中
   use Config;
   $ENV{PATH} = $FindBin::RealBin . $Config{path_sep} . $ENV{PATH};
 }
 
+# 导入 Netdisco 应用和 Dancer 框架
 use App::Netdisco;
 use Dancer ':script';
 use Dancer::Plugin::DBIC 'schema';
 
+# 导入权限匹配工具模块
 use App::Netdisco::Util::Permission 'acl_matches';
 
-# silent exit unless explicitly requested
+# 除非明确请求，否则静默退出（此脚本已弃用）
 exit(0) unless setting('use_legacy_rancidexport');
 
+# 获取 RANCID 相关配置设置
 my $settings = setting( 'rancid' );
 my $domain_suffix = setting( 'domain_suffix' );
 my $delimiter = $settings->{ 'delimiter' } || ':';
@@ -52,16 +61,19 @@ my $down_age = $settings->{ 'down_age' } || '1 day';
 my $rancidhome = $settings->{ 'rancid_home' } || '/var/lib/rancid';
 my $config_vendormap = $settings->{ 'vendormap' } || {};
 
+# 构建按 IP 地址分组的组列表
 my $by_ip = {};
 foreach my $g (@{$settings->{ 'by_ip' }}) {
   $by_ip->{$g} = 1;
 }
 
+# 构建按主机名分组的组列表
 my $by_hostname = {};
 foreach my $g (@{$settings->{ 'by_hostname' }}) {
   $by_hostname->{$g} = 1;
 }
 
+# 从数据库获取所有设备，并计算设备是否已过时
 my @devices = schema('netdisco')->resultset('Device')->search({},
   {
     '+columns' => {
@@ -85,9 +97,9 @@ foreach my $d (@devices) {
 }
 
 my %VENDORMAP = (
-# If netdisco vendor name and rancid vendor name
-# do not map 1:1, map it here.
-# eg:
+# 如果 netdisco 厂商名称和 rancid 厂商名称
+# 不是 1:1 映射，请在此处映射。
+# 例如：
 # 'dell:2024' => 'dellnseries',
 # 'dell:3024' => 'dellnseries'
 );
