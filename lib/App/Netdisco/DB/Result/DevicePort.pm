@@ -1,6 +1,8 @@
 use utf8;
 package App::Netdisco::DB::Result::DevicePort;
 
+# 设备端口结果类
+# 提供网络设备端口信息的管理模型
 
 use strict;
 use warnings;
@@ -11,6 +13,8 @@ use MIME::Base64 'encode_base64url';
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device_port");
+# 定义表列
+# 包含设备IP、端口、描述、状态、速度、VLAN等完整端口信息
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },
@@ -76,6 +80,8 @@ __PACKAGE__->add_columns(
   "tags",
   { data_type => "text[]", is_nullable => 0, default_value => \"'{}'::text[]" },
 );
+
+# 设置主键
 __PACKAGE__->set_primary_key("port", "ip");
 
 
@@ -88,6 +94,8 @@ Returns the Device table entry to which the given Port is related.
 
 =cut
 
+# 定义关联关系：设备
+# 返回给定端口相关的设备表条目
 __PACKAGE__->belongs_to( device => 'App::Netdisco::DB::Result::Device', 'ip' );
 
 =head2 port_vlans
@@ -354,6 +362,8 @@ the database.
 
 =cut
 
+# 邻居设备方法
+# 返回给定端口上邻居设备的设备条目
 sub neighbor {
     my $row = shift;
     return eval { $row->neighbor_alias->device || undef };
@@ -368,6 +378,8 @@ ID assigned to untagged frames received on the port).
 
 =cut
 
+# 原生VLAN方法
+# vlan列的别名，存储PVID（即分配给端口上接收的未标记帧的VLAN ID）
 sub native { return (shift)->vlan }
 
 =head2 error_disable_cause
@@ -539,6 +551,8 @@ in a URL.
 
 =cut
 
+# Base64URL端口方法
+# 返回适合在URL中使用的port列值的Base64编码版本
 sub base64url_port { return encode_base64url((shift)->port) }
 
 =head2 net_mac
@@ -547,6 +561,8 @@ Returns the C<mac> column instantiated into a L<NetAddr::MAC> object.
 
 =cut
 
+# 网络MAC方法
+# 将mac列实例化为NetAddr::MAC对象
 sub net_mac { return NetAddr::MAC->new(mac => ((shift)->mac || '')) }
 
 =head2 last_comment
@@ -555,6 +571,8 @@ Returns the most recent comment from the logs for this device port.
 
 =cut
 
+# 最后注释方法
+# 返回此设备端口日志中最新的注释
 sub last_comment {
   my $row = (shift)->logs->search(undef,
     { order_by => { -desc => 'creation' }, rows => 1 })->first;

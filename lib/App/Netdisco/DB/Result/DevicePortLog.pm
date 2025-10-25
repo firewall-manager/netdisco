@@ -1,12 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::DevicePortLog;
 
+# 设备端口日志结果类
+# 提供设备端口操作日志的管理模型
 
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device_port_log");
+# 定义表列
+# 包含日志ID、设备IP、端口、原因、日志内容和用户信息
 __PACKAGE__->add_columns(
   "id",
   {
@@ -38,6 +42,7 @@ __PACKAGE__->add_columns(
   },
 );
 
+# 设置主键
 __PACKAGE__->set_primary_key("id");
 
 =head1 ADDITIONAL COLUMNS
@@ -53,6 +58,8 @@ between the date stamp and time stamp. That is:
  
 =cut
  
+# 创建时间戳方法
+# 返回creation字段的格式化版本，精确到秒
 sub creation_stamp  { return (shift)->get_column('creation_stamp')  }
 
 1;

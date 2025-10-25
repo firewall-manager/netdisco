@@ -1,6 +1,8 @@
 use utf8;
 package App::Netdisco::DB::Result::NodeWireless;
 
+# 节点无线结果类
+# 提供网络节点无线信息的管理模型
 
 use strict;
 use warnings;
@@ -9,6 +11,8 @@ use NetAddr::MAC;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("node_wireless");
+# 定义表列
+# 包含MAC地址、运行时间、速率、信号强度、数据包统计和SSID信息
 __PACKAGE__->add_columns(
   "mac",
   { data_type => "macaddr", is_nullable => 0 },
@@ -40,6 +44,8 @@ __PACKAGE__->add_columns(
   "ssid",
   { data_type => "text", is_nullable => 0, default_value => '' },
 );
+
+# 设置主键
 __PACKAGE__->set_primary_key("mac", "ssid");
 
 
@@ -57,6 +63,8 @@ The JOIN is of type LEFT, in case the OUI table has not been populated.
 
 =cut
 
+# 定义关联关系：OUI（已弃用）
+# 返回与此节点匹配的OUI表条目，用于检索公司名称
 __PACKAGE__->belongs_to( oui => 'App::Netdisco::DB::Result::Oui',
     sub {
         my $args = shift;
@@ -77,6 +85,8 @@ The JOIN is of type LEFT, in case the Manufacturer table has not been populated.
 
 =cut
 
+# 定义关联关系：制造商
+# 返回与此节点匹配的制造商表条目，用于检索公司名称
 __PACKAGE__->belongs_to( manufacturer => 'App::Netdisco::DB::Result::Manufacturer',
   sub {
       my $args = shift;
@@ -97,6 +107,8 @@ database but the relation is being used in C<search()>.
 
 =cut
 
+# 定义关联关系：节点
+# 返回与此无线条目匹配的节点表条目
 __PACKAGE__->belongs_to( node => 'App::Netdisco::DB::Result::Node',
                        { 'foreign.mac' => 'self.mac' },
                        { join_type => 'LEFT' } );
@@ -109,6 +121,8 @@ Returns the C<mac> column instantiated into a L<NetAddr::MAC> object.
 
 =cut
 
+# 网络MAC方法
+# 将mac列实例化为NetAddr::MAC对象
 sub net_mac { return NetAddr::MAC->new(mac => ((shift)->mac || '')) }
 
 1;

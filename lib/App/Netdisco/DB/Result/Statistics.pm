@@ -1,11 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::Statistics;
 
+# 统计结果类
+# 提供系统统计信息的管理模型
+
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("statistics");
+# 定义表列
+# 包含日期、设备统计、端口统计、节点统计、电话统计、无线统计和版本信息
 __PACKAGE__->add_columns(
   "day",
   { data_type => "date", default_value => \"CURRENT_DATE", is_nullable => 0 },
@@ -45,6 +50,7 @@ __PACKAGE__->add_columns(
   { data_type => "text", is_nullable => 1 },
 );
 
+# 设置主键
 __PACKAGE__->set_primary_key("day");
 
 1;

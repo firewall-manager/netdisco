@@ -1,12 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::Process;
 
+# 进程结果类
+# 提供系统进程信息的管理模型
 
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("process");
+# 定义表列
+# 包含控制器、设备、动作、状态、计数和创建时间信息
 __PACKAGE__->add_columns(
   "controller",
   { data_type => "integer", is_nullable => 0 },

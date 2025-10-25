@@ -1,12 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::UserLog;
 
+# 用户日志结果类
+# 提供用户操作日志信息的管理模型
 
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("user_log");
+# 定义表列
+# 包含日志条目、用户名、IP地址、事件、详情和创建时间
 __PACKAGE__->add_columns(
   "entry",
   {

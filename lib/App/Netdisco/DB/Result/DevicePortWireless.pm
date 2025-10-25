@@ -1,12 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::DevicePortWireless;
 
+# 设备端口无线结果类
+# 提供设备端口无线接口信息的管理模型
 
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device_port_wireless");
+# 定义表列
+# 包含设备IP、端口、无线频道和功率信息
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },
@@ -18,6 +22,7 @@ __PACKAGE__->add_columns(
   { data_type => "integer", is_nullable => 1 },
 );
 
+# 设置主键
 __PACKAGE__->set_primary_key("port", "ip");
 
 
@@ -29,6 +34,8 @@ Returns the entry from the C<device> table which hosts this wireless port.
 
 =cut
 
+# 定义关联关系：设备
+# 返回托管此无线端口的设备表条目
 __PACKAGE__->belongs_to( device => 'App::Netdisco::DB::Result::Device', 'ip' );
 
 =head2 port
@@ -38,6 +45,8 @@ interface.
 
 =cut
 
+# 定义关联关系：端口
+# 返回与此无线接口对应的端口表条目
 __PACKAGE__->belongs_to( port => 'App::Netdisco::DB::Result::DevicePort', {
     'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',
 });
@@ -49,6 +58,8 @@ Port Wireless.
 
 =cut
 
+# 定义关联关系：节点
+# 返回与此设备端口无线接口关联的MAC地址节点集合
 __PACKAGE__->has_many( nodes => 'App::Netdisco::DB::Result::Node',
   {
     'foreign.switch' => 'self.ip',

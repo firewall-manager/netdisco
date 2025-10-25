@@ -1,6 +1,8 @@
 use utf8;
 package App::Netdisco::DB::Result::NodeNbt;
 
+# 节点NetBIOS结果类
+# 提供网络节点NetBIOS信息的管理模型
 
 use strict;
 use warnings;
@@ -9,6 +11,8 @@ use NetAddr::MAC;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("node_nbt");
+# 定义表列
+# 包含MAC地址、IP、NetBIOS名称、域、服务器状态、用户、活跃状态和时间信息
 __PACKAGE__->add_columns(
   "mac",
   { data_type => "macaddr", is_nullable => 0 },
@@ -39,6 +43,8 @@ __PACKAGE__->add_columns(
     original      => { default_value => \"LOCALTIMESTAMP" },
   },
 );
+
+# 设置主键
 __PACKAGE__->set_primary_key("mac");
 
 
@@ -56,6 +62,8 @@ The JOIN is of type LEFT, in case the OUI table has not been populated.
 
 =cut
 
+# 定义关联关系：OUI（已弃用）
+# 返回与此节点匹配的OUI表条目，用于检索公司名称
 __PACKAGE__->belongs_to( oui => 'App::Netdisco::DB::Result::Oui',
     sub {
         my $args = shift;
@@ -76,6 +84,8 @@ The JOIN is of type LEFT, in case the Manufacturer table has not been populated.
 
 =cut
 
+# 定义关联关系：制造商
+# 返回与此节点匹配的制造商表条目，用于检索公司名称
 __PACKAGE__->belongs_to( manufacturer => 'App::Netdisco::DB::Result::Manufacturer',
   sub {
       my $args = shift;
@@ -100,6 +110,8 @@ See also the C<node_sightings> helper routine, below.
 
 =cut
 
+# 定义关联关系：节点
+# 返回与此IP关联的节点条目集合，即曾经托管此IP地址的所有MAC地址
 __PACKAGE__->has_many( nodes => 'App::Netdisco::DB::Result::Node',
   { 'foreign.mac' => 'self.mac' } );
 
@@ -114,6 +126,8 @@ as the current NetBIOS entry.
 
 =cut
 
+# 定义关联关系：节点IP
+# 返回与此NetBIOS条目关联的node_ip条目集合，即发现时相同MAC地址的IP地址
 __PACKAGE__->has_many( nodeips => 'App::Netdisco::DB::Result::NodeIp',
   { 'foreign.mac' => 'self.mac', 'foreign.active' => 'self.active' } );
 
@@ -154,6 +168,8 @@ A JOIN is performed on the Device table and the Device DNS column prefetched.
 
 =cut
 
+# 节点发现方法
+# 返回与此IP关联的节点条目集合，即曾经托管此IP地址的所有MAC地址
 sub node_sightings {
     my ($row, $cond, $attrs) = @_;
 
@@ -179,6 +195,8 @@ between the date stamp and time stamp. That is:
 
 =cut
 
+# 首次时间戳方法
+# 返回time_first字段的格式化版本，精确到分钟
 sub time_first_stamp { return (shift)->get_column('time_first_stamp') }
 
 =head2 time_last_stamp
@@ -192,6 +210,8 @@ between the date stamp and time stamp. That is:
 
 =cut
 
+# 最后时间戳方法
+# 返回time_last字段的格式化版本，精确到分钟
 sub time_last_stamp  { return (shift)->get_column('time_last_stamp')  }
 
 =head2 net_mac
@@ -200,6 +220,8 @@ Returns the C<mac> column instantiated into a L<NetAddr::MAC> object.
 
 =cut
 
+# 网络MAC方法
+# 将mac列实例化为NetAddr::MAC对象
 sub net_mac { return NetAddr::MAC->new(mac => ((shift)->mac || '')) }
 
 1;

@@ -1,12 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::Log;
 
+# 日志结果类
+# 提供系统日志信息的管理模型
 
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("log");
+# 定义表列
+# 包含日志ID、创建时间、类别、条目和日志文件信息
 __PACKAGE__->add_columns(
   "id",
   {

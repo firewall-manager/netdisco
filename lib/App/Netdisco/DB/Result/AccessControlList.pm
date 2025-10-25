@@ -1,4 +1,8 @@
 package App::Netdisco::DB::Result::AccessControlList;
+
+# 访问控制列表结果类
+# 提供数据库中的ACL模型
+
 use utf8;
 use strict;
 use warnings;
@@ -17,6 +21,8 @@ Models an ACL in the database.
 
 __PACKAGE__->table('access_control_list');
 
+# 定义表列
+# 包含ACL的ID、名称和规则数组
 __PACKAGE__->add_columns(
   "id",
   { data_type => "integer", is_nullable => 0, is_auto_increment => 1 },
@@ -26,6 +32,7 @@ __PACKAGE__->add_columns(
   { data_type => "text[]", is_nullable => 0 },
 );
 
+# 设置主键
 __PACKAGE__->set_primary_key("id");
 
 1;

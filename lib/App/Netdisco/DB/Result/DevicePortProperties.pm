@@ -1,11 +1,16 @@
 use utf8;
 package App::Netdisco::DB::Result::DevicePortProperties;
 
+# 设备端口属性结果类
+# 提供设备端口扩展属性的管理模型
+
 use strict;
 use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device_port_properties");
+# 定义表列
+# 包含设备IP、端口、错误状态、远程设备信息和PAE认证信息
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },
@@ -53,6 +58,8 @@ __PACKAGE__->add_columns(
   { data_type => "boolean", default_value => \"false", is_nullable => 1 },
 
 );
+
+# 设置主键
 __PACKAGE__->set_primary_key("port", "ip");
 
 
@@ -64,6 +71,8 @@ Returns the entry from the C<port> table for which this Power entry applies.
 
 =cut
 
+# 定义关联关系：端口
+# 返回此属性条目适用的端口表条目
 __PACKAGE__->belongs_to( port => 'App::Netdisco::DB::Result::DevicePort', {
   'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',
 });

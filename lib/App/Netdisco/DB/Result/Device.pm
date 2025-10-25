@@ -1,6 +1,9 @@
 use utf8;
 package App::Netdisco::DB::Result::Device;
 
+# 设备结果类
+# 提供网络设备信息的管理模型
+
 use strict;
 use warnings;
 
@@ -11,6 +14,8 @@ use overload '""' => sub { shift->ip }, fallback => 1;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device");
+# 定义表列
+# 包含设备的完整信息：IP、DNS、描述、硬件、软件、SNMP等
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },
@@ -92,6 +97,8 @@ __PACKAGE__->add_columns(
   "tags",
   { data_type => "text[]", is_nullable => 0, default_value => \"'{}'::text[]" },
 );
+
+# 设置主键
 __PACKAGE__->set_primary_key("ip");
 
 
@@ -104,6 +111,8 @@ all the interface IP aliases configured on the Device.
 
 =cut
 
+# 定义关联关系：设备IP别名
+# 返回与此设备相关的device_ip表行，即设备上配置的所有接口IP别名
 __PACKAGE__->has_many( device_ips => 'App::Netdisco::DB::Result::DeviceIp', 'ip' );
 
 =head2 device_ips_by_address_or_name
@@ -145,6 +154,8 @@ Returns the set of ports on this Device.
 
 =cut
 
+# 定义关联关系：端口
+# 返回此设备上的端口集合
 __PACKAGE__->has_many( ports => 'App::Netdisco::DB::Result::DevicePort', 'ip' );
 
 =head2 ports_by_mac
@@ -312,6 +323,8 @@ Returns true if the device provided sysServices and supports the given layer.
 
 =cut
 
+# 检查设备层方法
+# 如果设备提供了sysServices并支持给定层，返回true
 sub has_layer {
   my ($device, $layer) = @_;
   return unless $layer and $layer =~ m/^[1-7]$/;
@@ -326,6 +339,8 @@ Device row object.
 
 =cut
 
+# 设备重新编号方法
+# 将此设备及所有相关数据库记录更新为使用新的IP地址
 sub renumber {
   my ($device, $ip) = @_;
   my $schema = $device->result_source->schema;
@@ -338,14 +353,14 @@ sub renumber {
 
   return if $new_ip eq '0.0.0.0';
 
-  # the special record in device_ip which is always there
+  # device_ip表中总是存在的特殊记录
   $schema->resultset('DeviceIp')
     ->search({ip => $old_ip, alias => $old_ip})
     ->update({ip => $new_ip, alias => $new_ip});
   $schema->resultset('DeviceIp')
     ->search({ip => $old_ip, alias => $new_ip})->delete();
 
-  # Community is not included as SNMP::test_connection will take care of it
+  # 不包括Community，因为SNMP::test_connection会处理它
   foreach my $set (qw/
     DeviceBrowser
     DeviceIp
