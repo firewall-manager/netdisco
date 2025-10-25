@@ -11,18 +11,18 @@ use Scalar::Util 'blessed';
 
 # 注册检查阶段工作器 - 解析后端主机名
 register_worker(
-  {phase => 'check', driver => 'direct'},  # 检查阶段，直接驱动
+  {phase => 'check', driver => 'direct'},    # 检查阶段，直接驱动
   sub {
     my ($job, $workerconf) = @_;
-    my $action = $job->action or return;  # 获取作业动作
+    my $action = $job->action or return;     # 获取作业动作
 
     # 如果作业在CLI下运行，可能需要BACKEND设置
     return
       unless scalar grep { $_ eq $action } @{setting('deferrable_actions')} and not setting('workers')->{'BACKEND'};
 
     # 这可能需要几秒钟 - 只执行一次
-    info 'resolving backend hostname...';  # 解析后端主机名
-    setting('workers')->{'BACKEND'} ||= (hostfqdn || 'fqdn-undefined');  # 设置后端标识
+    info 'resolving backend hostname...';                                  # 解析后端主机名
+    setting('workers')->{'BACKEND'} ||= (hostfqdn || 'fqdn-undefined');    # 设置后端标识
 
     debug sprintf 'Backend identity set to %s', setting('workers')->{'BACKEND'};
   }

@@ -14,7 +14,7 @@ use Time::HiRes 'gettimeofday';
 
 # 注册主阶段工作器 - 通过SNMP收集子网信息
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},    # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
 
@@ -37,7 +37,7 @@ register_worker(
 
 # 注册主阶段工作器 - 通过CLI收集子网信息
 register_worker(
-  {phase => 'main', driver => 'cli'},  # 主阶段，使用CLI驱动
+  {phase => 'main', driver => 'cli'},    # 主阶段，使用CLI驱动
   sub {
     my ($job, $workerconf) = @_;
 
@@ -72,12 +72,12 @@ sub gather_subnets {
 
     # 跳过无效地址
     next if $addr eq '0.0.0.0';
-    next if acl_matches($ip, 'group:__LOOPBACK_ADDRESSES__');  # 跳过回环地址
-    next if setting('ignore_private_nets') and $ip->is_rfc1918;  # 跳过私有网络
+    next if acl_matches($ip, 'group:__LOOPBACK_ADDRESSES__');      # 跳过回环地址
+    next if setting('ignore_private_nets') and $ip->is_rfc1918;    # 跳过私有网络
 
     # 获取网络掩码
     my $netmask = $ip_netmask->{$addr} || $ip->bits();
-    next if $netmask eq '255.255.255.255' or $netmask eq '0.0.0.0';  # 跳过主机地址和默认路由
+    next if $netmask eq '255.255.255.255' or $netmask eq '0.0.0.0';    # 跳过主机地址和默认路由
 
     # 构建CIDR格式的子网
     my $cidr = NetAddr::IP::Lite->new($addr, $netmask)->network->cidr;

@@ -11,18 +11,18 @@ use Dancer::Plugin::DBIC 'schema';
 
 # 注册主阶段工作器 - 发现端口电源信息
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},    # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
 
     my $device = $job->device;
-    return unless $device->in_storage;  # 确保设备已存储
+    return unless $device->in_storage;    # 确保设备已存储
     my $snmp = App::Netdisco::Transport::SNMP->reader_for($device)
       or return Status->defer("discover failed: could not SNMP connect to $device");
 
     # 获取电源模块信息
-    my $p_watts  = $snmp->peth_power_watts;   # 电源模块功率
-    my $p_status = $snmp->peth_power_status;  # 电源模块状态
+    my $p_watts  = $snmp->peth_power_watts;     # 电源模块功率
+    my $p_status = $snmp->peth_power_status;    # 电源模块状态
 
     if (!defined $p_watts) {
       return Status->info(sprintf ' [%s] power - 0 power modules', $device->ip);
@@ -38,12 +38,12 @@ register_worker(
     my $device_ports = vars->{'device_ports'} || {map { ($_->port => $_) } $device->ports->all};
 
     # 获取端口电源相关信息
-    my $interfaces = $snmp->interfaces;        # 接口映射
-    my $p_ifindex  = $snmp->peth_port_ifindex; # PoE端口接口索引
-    my $p_admin    = $snmp->peth_port_admin;   # PoE端口管理状态
-    my $p_pstatus  = $snmp->peth_port_status;  # PoE端口状态
-    my $p_class    = $snmp->peth_port_class;   # PoE端口类别
-    my $p_power    = $snmp->peth_port_power;   # PoE端口功率
+    my $interfaces = $snmp->interfaces;           # 接口映射
+    my $p_ifindex  = $snmp->peth_port_ifindex;    # PoE端口接口索引
+    my $p_admin    = $snmp->peth_port_admin;      # PoE端口管理状态
+    my $p_pstatus  = $snmp->peth_port_status;     # PoE端口状态
+    my $p_class    = $snmp->peth_port_class;      # PoE端口类别
+    my $p_power    = $snmp->peth_port_power;      # PoE端口功率
 
     # 构建设备端口电源信息，适合DBIC
     my @portpower;
@@ -57,14 +57,14 @@ register_worker(
         next;
       }
 
-      my ($module) = split m/\./, $entry;  # 提取模块号
+      my ($module) = split m/\./, $entry;    # 提取模块号
       push @portpower, {
-        port   => $port,                    # 端口名称
-        module => $module,                  # 模块号
-        admin  => $p_admin->{$entry},       # 管理状态
-        status => $p_pstatus->{$entry},     # 端口状态
-        class  => $p_class->{$entry},       # 端口类别
-        power  => $p_power->{$entry},       # 端口功率
+        port   => $port,                   # 端口名称
+        module => $module,                 # 模块号
+        admin  => $p_admin->{$entry},      # 管理状态
+        status => $p_pstatus->{$entry},    # 端口状态
+        class  => $p_class->{$entry},      # 端口类别
+        power  => $p_power->{$entry},      # 端口功率
       };
     }
 

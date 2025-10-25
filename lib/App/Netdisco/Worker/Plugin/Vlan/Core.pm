@@ -11,10 +11,10 @@ use App::Netdisco::Util::Port ':all';
 
 # 注册早期阶段工作器 - 初始化VLAN设置前的准备工作
 register_worker(
-  {phase => 'early', driver => 'snmp'},  # 早期阶段，使用SNMP驱动
+  {phase => 'early', driver => 'snmp'},    # 早期阶段，使用SNMP驱动
   sub {
     my ($job,    $workerconf) = @_;
-    my ($device, $pn)         = map { $job->$_ } qw/device port/;  # 获取设备和端口信息
+    my ($device, $pn)         = map { $job->$_ } qw/device port/;    # 获取设备和端口信息
 
     # 使用读写社区字符串连接SNMP
     my $snmp = App::Netdisco::Transport::SNMP->writer_for($device)
@@ -24,29 +24,29 @@ register_worker(
     vars->{'iid'} = get_iid($snmp, vars->{'port'})
       or return Status->error("Failed to get port ID for [$pn] from $device");
 
-    return Status->info("Vlan set can continue.");  # VLAN设置可以继续
+    return Status->info("Vlan set can continue.");                   # VLAN设置可以继续
   }
 );
 
 # 注册主阶段工作器 - 执行VLAN配置设置
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},                               # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
-    return unless defined vars->{'iid'};  # 确保接口ID已获取
-    _action($job, 'pvid');                 # 设置PVID
-    return _action($job, 'vlan');         # 设置VLAN
+    return unless defined vars->{'iid'};                             # 确保接口ID已获取
+    _action($job, 'pvid');                                           # 设置PVID
+    return _action($job, 'vlan');                                    # 设置VLAN
   }
 );
 
 # 执行VLAN配置操作的核心函数
 sub _action {
-  my ($job, $slot) = @_;  # 作业和配置槽位（pvid或vlan）
-  my ($device, $pn, $data) = map { $job->$_ } qw/device port extra/;  # 获取设备、端口和数据
+  my ($job, $slot) = @_;                                                # 作业和配置槽位（pvid或vlan）
+  my ($device, $pn, $data) = map { $job->$_ } qw/device port extra/;    # 获取设备、端口和数据
 
   # 构建SNMP方法名
-  my $getter = "i_${slot}";    # 获取方法名
-  my $setter = "set_i_${slot}";  # 设置方法名
+  my $getter = "i_${slot}";                                             # 获取方法名
+  my $setter = "set_i_${slot}";                                         # 设置方法名
 
   # 使用读写社区字符串连接SNMP
   my $snmp = App::Netdisco::Transport::SNMP->writer_for($device)
@@ -62,8 +62,8 @@ sub _action {
   }
 
   # 确认设置是否生效
-  $snmp->clear_cache;  # 清除SNMP缓存
-  my $state = ($snmp->$getter(vars->{'iid'}) || '');  # 获取当前状态
+  $snmp->clear_cache;                                   # 清除SNMP缓存
+  my $state = ($snmp->$getter(vars->{'iid'}) || '');    # 获取当前状态
   if (ref {} ne ref $state or $state->{vars->{'iid'}} ne $data) {
     return Status->error("Verify of [$pn] $slot failed on $device");
   }

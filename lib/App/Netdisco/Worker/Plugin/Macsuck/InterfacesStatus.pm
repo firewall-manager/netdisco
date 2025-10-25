@@ -9,34 +9,34 @@ use Dancer::Plugin::DBIC 'schema';
 
 # 注册主阶段工作器 - 从SNMP收集接口状态
 register_worker(
-  {phase => 'main', driver => 'snmp', title => 'gather interfaces status from snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp', title => 'gather interfaces status from snmp'},    # 主阶段，使用SNMP驱动
   sub {
 
     my ($job, $workerconf) = @_;
-    my $device = $job->device;  # 获取设备对象
+    my $device = $job->device;                                                           # 获取设备对象
 
     # 建立SNMP连接
     my $snmp = App::Netdisco::Transport::SNMP->reader_for($device)
       or return Status->info("skip: could not SNMP connect to $device");
 
     # 获取接口映射表
-    my $interfaces         = $snmp->interfaces || {};  # 接口ID到名称的映射
-    my $reverse_interfaces = {reverse %{$interfaces}};    # 名称到接口ID的反向映射
+    my $interfaces         = $snmp->interfaces || {};                                    # 接口ID到名称的映射
+    my $reverse_interfaces = {reverse %{$interfaces}};                                   # 名称到接口ID的反向映射
 
     # 获取接口状态信息
-    my $i_up       = $snmp->i_up;        # 接口运行状态
-    my $i_up_admin = $snmp->i_up_admin;  # 接口管理状态
+    my $i_up       = $snmp->i_up;                                                        # 接口运行状态
+    my $i_up_admin = $snmp->i_up_admin;                                                  # 接口管理状态
 
     # 确保端口反映设备报告的最新状态
     foreach my $port (keys %{vars->{'device_ports'}}) {
-      my $iid = $reverse_interfaces->{$port} or next;  # 获取接口ID
+      my $iid = $reverse_interfaces->{$port} or next;                                    # 获取接口ID
 
       debug sprintf ' [%s] macsuck - updating port %s status : %s/%s', $device->ip, $port,
         ($i_up_admin->{$iid} || '-'), ($i_up->{$iid} || '-');
 
       # 更新端口状态
-      vars->{'device_ports'}->{$port}->set_column(up       => $i_up->{$iid});        # 设置运行状态
-      vars->{'device_ports'}->{$port}->set_column(up_admin => $i_up_admin->{$iid});  # 设置管理状态
+      vars->{'device_ports'}->{$port}->set_column(up       => $i_up->{$iid});            # 设置运行状态
+      vars->{'device_ports'}->{$port}->set_column(up_admin => $i_up_admin->{$iid});      # 设置管理状态
     }
 
     return Status->info('interfaces status from snmp complete');

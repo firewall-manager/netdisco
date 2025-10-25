@@ -14,7 +14,7 @@ use App::Netdisco::Util::DNS qw/hostname_from_ip ipv4_from_hostname/;
 use base 'Exporter';
 our @EXPORT_OK = qw/
   monitor
-/;
+  /;
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 # 发送邮件通知
@@ -25,12 +25,12 @@ sub _email {
   my $domain = (hostfqdn || 'fqdn-undefined');
 
   my $SENDMAIL = '/usr/sbin/sendmail';
-  open (SENDMAIL, "| $SENDMAIL -t") or die "Can't open sendmail at $SENDMAIL.\n";
-    print SENDMAIL "To: $to\n";
-    print SENDMAIL "From: Netdisco <netdisco\@$domain>\n";
-    print SENDMAIL "Subject: $subject\n\n";
-    print SENDMAIL $body;
-  close (SENDMAIL) or die "Can't send letter. $!\n";
+  open(SENDMAIL, "| $SENDMAIL -t") or die "Can't open sendmail at $SENDMAIL.\n";
+  print SENDMAIL "To: $to\n";
+  print SENDMAIL "From: Netdisco <netdisco\@$domain>\n";
+  print SENDMAIL "Subject: $subject\n\n";
+  print SENDMAIL $body;
+  close(SENDMAIL) or die "Can't send letter. $!\n";
 }
 
 # 执行节点监控
@@ -40,8 +40,9 @@ sub monitor {
 
   # 遍历所有监控条目
   while (my $entry = $monitor->next) {
+
     # 构建邮件正文
-    my $body = <<"end_body";
+    my $body = <<"END_BODY";
 ........ n e t d i s c o .........
   Node    : @{[$entry->mac]} (@{[$entry->why]})
   When    : @{[$entry->date]}
@@ -49,16 +50,12 @@ sub monitor {
   Port    : @{[$entry->port]} (@{[$entry->portname]})
   Location: @{[$entry->location]}
 
-end_body
+END_BODY
 
-    debug sprintf ' monitor - reporting on %s at %s:%s',
-      $entry->mac, $entry->name, $entry->port;
+    debug sprintf ' monitor - reporting on %s at %s:%s', $entry->mac, $entry->name, $entry->port;
+
     # 发送邮件通知
-    _email(
-      $entry->cc,
-      "Saw mac @{[$entry->mac]} (@{[$entry->why]}) on @{[$entry->name]} @{[$entry->port]}",
-      $body
-    );
+    _email($entry->cc, "Saw mac @{[$entry->mac]} (@{[$entry->why]}) on @{[$entry->name]} @{[$entry->port]}", $body);
   }
 }
 

@@ -14,7 +14,7 @@ use NetAddr::IP;
 
 # 注册主阶段工作器 - 发现路由邻居
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},    # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
     my $device = $job->device;
@@ -37,11 +37,11 @@ register_worker(
       or return Status->defer("discover failed: could not SNMP connect to $device");
 
     # 获取各种路由协议的对等体信息
-    my $ospf_peers   = $snmp->ospf_peers    || {};  # OSPF对等体
-    my $ospf_routers = $snmp->ospf_peer_id  || {};  # OSPF路由器ID
-    my $isis_peers   = $snmp->isis_peers    || {};  # IS-IS对等体
-    my $bgp_peers    = $snmp->bgp_peer_addr || {};  # BGP对等体地址
-    my $eigrp_peers  = $snmp->eigrp_peers   || {};  # EIGRP对等体
+    my $ospf_peers   = $snmp->ospf_peers    || {};    # OSPF对等体
+    my $ospf_routers = $snmp->ospf_peer_id  || {};    # OSPF路由器ID
+    my $isis_peers   = $snmp->isis_peers    || {};    # IS-IS对等体
+    my $bgp_peers    = $snmp->bgp_peer_addr || {};    # BGP对等体地址
+    my $eigrp_peers  = $snmp->eigrp_peers   || {};    # EIGRP对等体
 
     # 检查是否有任何路由协议对等体
     return Status->info(" [$device] neigh - no BGP, OSPF, IS-IS, or EIGRP peers")
@@ -53,14 +53,14 @@ register_worker(
 
     # 收集所有路由对等体IP地址
     foreach my $ip (
-      (values %$ospf_peers),    # OSPF对等体IP
-      (values %$ospf_routers),  # OSPF路由器ID
-      (values %$bgp_peers),     # BGP对等体IP
-      (values %$eigrp_peers),   # EIGRP对等体IP
-      (values %$isis_peers)     # IS-IS对等体IP
+      (values %$ospf_peers),      # OSPF对等体IP
+      (values %$ospf_routers),    # OSPF路由器ID
+      (values %$bgp_peers),       # BGP对等体IP
+      (values %$eigrp_peers),     # EIGRP对等体IP
+      (values %$isis_peers)       # IS-IS对等体IP
     ) {
 
-      push @{vars->{'next_hops'}}, $ip;  # 添加到下一跳列表
+      push @{vars->{'next_hops'}}, $ip;    # 添加到下一跳列表
     }
 
     return Status->info(sprintf " [%s] neigh - found %s routed peers.", $device, scalar @{vars->{'next_hops'}});
@@ -69,33 +69,33 @@ register_worker(
 
 # 注册存储阶段工作器 - 存储路由邻居
 register_worker(
-  {phase => 'store'},  # 存储阶段
+  {phase => 'store'},    # 存储阶段
   sub {
     my ($job, $workerconf) = @_;
     my $device = $job->device;
 
-    my $nh = vars->{'next_hops'};  # 获取下一跳列表
-    return unless ref [] eq ref $nh and scalar @$nh;  # 检查是否为数组且非空
+    my $nh = vars->{'next_hops'};                       # 获取下一跳列表
+    return unless ref [] eq ref $nh and scalar @$nh;    # 检查是否为数组且非空
 
-    my $count = 0;  # 排队计数器
+    my $count = 0;                                      # 排队计数器
     foreach my $host (@$nh) {
-      my $ip = NetAddr::IP->new($host);  # 创建IP地址对象
-      
+      my $ip = NetAddr::IP->new($host);                 # 创建IP地址对象
+
       # 跳过无效IP地址
       if (not $ip or $ip->addr eq '0.0.0.0' or acl_matches($ip->addr, 'group:__LOOPBACK_ADDRESSES__')) {
         debug sprintf ' [%s] neigh - skipping routed peer %s is not valid', $device, $host;
         next;
       }
 
-      my $peer = get_device($ip);  # 获取对等设备
-      next if $peer->in_storage or not is_discoverable($peer);  # 跳过已存储或不可发现的设备
-      next if vars->{'queued'}->{$peer->ip};  # 跳过已排队的设备
+      my $peer = get_device($ip);                                 # 获取对等设备
+      next if $peer->in_storage or not is_discoverable($peer);    # 跳过已存储或不可发现的设备
+      next if vars->{'queued'}->{$peer->ip};                      # 跳过已排队的设备
 
       # 将设备加入发现队列
       jq_insert({device => $peer->ip, action => 'discover',});
 
       $count++;
-      vars->{'queued'}->{$peer->ip} += 1;  # 标记为已排队
+      vars->{'queued'}->{$peer->ip} += 1;                         # 标记为已排队
       debug sprintf ' [%s] neigh - queued %s for discovery (peer)', $device, $peer->ip;
     }
 

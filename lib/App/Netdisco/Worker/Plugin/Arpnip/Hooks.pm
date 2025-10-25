@@ -11,10 +11,10 @@ use App::Netdisco::Util::Permission qw/acl_matches acl_matches_only/;
 
 # 注册后期阶段工作器 - 在arpnip任务完成后执行钩子
 register_worker(
-  {phase => 'late'},  # 后期阶段工作器
+  {phase => 'late'},    # 后期阶段工作器
   sub {
     my ($job, $workerconf) = @_;
-    my $count = 0;  # 钩子执行计数器
+    my $count = 0;      # 钩子执行计数器
 
     # 检查任务状态，只有成功完成的任务才执行钩子
     my $best = $job->best_status;
@@ -24,17 +24,18 @@ register_worker(
 
     # 遍历配置的钩子
     foreach my $conf (@{setting('hooks')}) {
-      my $no   = ($conf->{'filter'}->{'no'}   || []);   # 排除过滤器
-      my $only = ($conf->{'filter'}->{'only'} || []);   # 仅包含过滤器
+      my $no   = ($conf->{'filter'}->{'no'}   || []);    # 排除过滤器
+      my $only = ($conf->{'filter'}->{'only'} || []);    # 仅包含过滤器
 
       # 检查设备是否匹配排除条件
       next if acl_matches($job->device, $no);
+
       # 检查设备是否匹配仅包含条件
       next unless acl_matches_only($job->device, $only);
 
       # 如果是arpnip事件，执行钩子
       if ($conf->{'event'} eq 'arpnip') {
-        $count += queue_hook('arpnip', $conf);  # 排队执行arpnip钩子
+        $count += queue_hook('arpnip', $conf);    # 排队执行arpnip钩子
         debug sprintf ' [%s] hooks - %s queued', 'arpnip', $job->device;
       }
     }

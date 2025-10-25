@@ -238,7 +238,7 @@ sub _snmp_connect_generic {
       my $ver = (exists $comm->{community} ? 2 : 3);
       my %local_args = (%snmp_args,
         Version => $ver, Retries => 0, Timeout => 200000);
-        
+
       my $info = _try_connect($device, $classes[0], $comm, $mode, \%local_args,
             ($useclass ? 0 : 1) );
       # 如果成功，恢复默认/用户超时并返回
@@ -316,7 +316,7 @@ sub _snmp_connect_generic {
 sub _try_connect {
   my ($device, $class, $comm, $mode, $snmp_args, $reclass) = @_;
   my %comm_args = _mk_info_commargs($comm);
-  
+
   # 调试社区字符串显示
   my $debug_comm = '<hidden>';
   if ($ENV{ND2_SHOW_COMMUNITY} || $ENV{SHOW_COMMUNITY}) {
@@ -387,7 +387,7 @@ sub _try_read {
 
   # 离线设备直接返回
   return $info if $info->offline;
-  
+
   # 更新设备 SNMP 版本
   $device->in_storage
     ? $device->update({snmp_ver => $info->snmp_ver})

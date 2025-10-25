@@ -24,17 +24,16 @@ use List::MoreUtils ();
 
 # 注册早期阶段工作器 - 准备通用数据
 register_worker(
-  {phase => 'early', title => 'prepare common data'},  # 早期阶段，准备通用数据
+  {phase => 'early', title => 'prepare common data'},    # 早期阶段，准备通用数据
   sub {
 
     my ($job, $workerconf) = @_;
     my $device = $job->device;
 
     # 设置时间戳，使用相同值便于后续处理
-    vars->{'timestamp'}
-      = ($job->is_offline and $job->entered)  # 离线作业使用进入时间
+    vars->{'timestamp'} = ($job->is_offline and $job->entered)    # 离线作业使用进入时间
       ? (schema('netdisco')->storage->dbh->quote($job->entered) . '::timestamp')
-      : 'to_timestamp(' . (join '.', gettimeofday) . ')::timestamp';  # 在线作业使用当前时间
+      : 'to_timestamp(' . (join '.', gettimeofday) . ')::timestamp';    # 在线作业使用当前时间
 
     # 初始化转发表缓存
     vars->{'fwtable'} = {};

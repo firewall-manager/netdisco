@@ -12,54 +12,52 @@ use App::Netdisco::Util::Permission 'acl_matches';
 
 # 注册主阶段工作器 - 设置设备标签
 register_worker(
-  {phase => 'main', title => 'device tags'},  # 主阶段，设备标签
+  {phase => 'main', title => 'device tags'},    # 主阶段，设备标签
   sub {
     my ($job, $workerconf) = @_;
     my $device = $job->device;
-    return unless $device->in_storage;  # 确保设备已存储
+    return unless $device->in_storage;          # 确保设备已存储
 
     # 检查标签配置是否存在
-    return
-          unless setting('tags')                    # 标签设置存在
-      and ref {} eq ref setting('tags')             # 标签设置是哈希引用
-      and exists setting('tags')->{'device'}        # 设备标签配置存在
-      and ref {} eq ref setting('tags')->{'device'}; # 设备标签配置是哈希引用
+    return unless setting('tags')                       # 标签设置存在
+      and ref {} eq ref setting('tags')                 # 标签设置是哈希引用
+      and exists setting('tags')->{'device'}            # 设备标签配置存在
+      and ref {} eq ref setting('tags')->{'device'};    # 设备标签配置是哈希引用
 
-    my $tags        = setting('tags')->{'device'};  # 获取设备标签配置
-    my @tags_to_set = ();                           # 要设置的标签列表
+    my $tags        = setting('tags')->{'device'};      # 获取设备标签配置
+    my @tags_to_set = ();                               # 要设置的标签列表
 
     # 遍历所有标签配置
     foreach my $tag (sort keys %$tags) {
 
       # 左侧是标签，右侧匹配设备
-      next unless acl_matches($device, $tags->{$tag});  # 检查设备是否匹配标签规则
-      push @tags_to_set, $tag;  # 添加匹配的标签
+      next unless acl_matches($device, $tags->{$tag});    # 检查设备是否匹配标签规则
+      push @tags_to_set, $tag;                            # 添加匹配的标签
     }
 
-    return unless scalar @tags_to_set;  # 如果没有标签要设置则返回
-    $device->update({tags => \@tags_to_set});  # 更新设备标签
+    return unless scalar @tags_to_set;                    # 如果没有标签要设置则返回
+    $device->update({tags => \@tags_to_set});             # 更新设备标签
     debug sprintf ' [%s] properties - set %s tag%s', $device->ip, scalar @tags_to_set, (scalar @tags_to_set > 1);
   }
 );
 
 # 注册主阶段工作器 - 设置设备端口标签
 register_worker(
-  {phase => 'main', title => 'device port tags'},  # 主阶段，设备端口标签
+  {phase => 'main', title => 'device port tags'},    # 主阶段，设备端口标签
   sub {
     my ($job, $workerconf) = @_;
     my $device = $job->device;
-    return unless $device->in_storage;  # 确保设备已存储
+    return unless $device->in_storage;               # 确保设备已存储
 
     # 检查端口标签配置是否存在
-    return
-          unless setting('tags')                        # 标签设置存在
-      and ref {} eq ref setting('tags')                 # 标签设置是哈希引用
-      and exists setting('tags')->{'device_port'}       # 设备端口标签配置存在
-      and ref {} eq ref setting('tags')->{'device_port'}; # 设备端口标签配置是哈希引用
+    return unless setting('tags')                            # 标签设置存在
+      and ref {} eq ref setting('tags')                      # 标签设置是哈希引用
+      and exists setting('tags')->{'device_port'}            # 设备端口标签配置存在
+      and ref {} eq ref setting('tags')->{'device_port'};    # 设备端口标签配置是哈希引用
 
-    my $tags        = setting('tags')->{'device_port'}; # 获取设备端口标签配置
-    my %tags_to_set = ();                              # 要设置的标签哈希
-    my $port_map    = {};                              # 端口映射
+    my $tags        = setting('tags')->{'device_port'};      # 获取设备端口标签配置
+    my %tags_to_set = ();                                    # 要设置的标签哈希
+    my $port_map    = {};                                    # 端口映射
 
     # 钩子数据出现在早期阶段的Properties工作器之后
     map { push @{$port_map->{$_->{port}}}, $_ } @{vars->{'hook_data'}->{'ports'} || []},
@@ -76,12 +74,12 @@ register_worker(
 
           # 左侧匹配设备，右侧匹配端口
           next unless $key and $map->{$key};
-          next unless acl_matches($device, $key);  # 检查设备是否匹配
+          next unless acl_matches($device, $key);    # 检查设备是否匹配
 
           foreach my $port (sort { sort_port($a, $b) } keys %$port_map) {
-            next unless acl_matches($port_map->{$port}, $map->{$key});  # 检查端口是否匹配
+            next unless acl_matches($port_map->{$port}, $map->{$key});    # 检查端口是否匹配
 
-            push @{$tags_to_set{$port}}, $tag;  # 添加匹配的标签到端口
+            push @{$tags_to_set{$port}}, $tag;                            # 添加匹配的标签到端口
           }
         }
       }

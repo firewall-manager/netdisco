@@ -21,17 +21,16 @@ use Time::HiRes 'gettimeofday';
 
 # 注册早期阶段工作器 - 准备通用数据
 register_worker(
-  {phase => 'early', title => 'prepare common data'},  # 早期阶段，准备通用数据
+  {phase => 'early', title => 'prepare common data'},    # 早期阶段，准备通用数据
   sub {
 
     my ($job, $workerconf) = @_;
     my $device = $job->device;
 
     # 设置时间戳，使用相同值便于后续处理
-    vars->{'timestamp'}
-      = ($job->is_offline and $job->entered)  # 离线作业使用进入时间
+    vars->{'timestamp'} = ($job->is_offline and $job->entered)    # 离线作业使用进入时间
       ? (schema('netdisco')->storage->dbh->quote($job->entered) . '::timestamp')
-      : 'to_timestamp(' . (join '.', gettimeofday) . ')::timestamp';  # 在线作业使用当前时间
+      : 'to_timestamp(' . (join '.', gettimeofday) . ')::timestamp';    # 在线作业使用当前时间
 
     # 初始化缓存
     vars->{'arps'} = [];
@@ -40,7 +39,7 @@ register_worker(
 
 # 注册存储阶段工作器 - 存储ARP/IP节点数据
 register_worker(
-  {phase => 'store'},  # 存储阶段
+  {phase => 'store'},    # 存储阶段
   sub {
     my ($job, $workerconf) = @_;
     my $device = $job->device;
@@ -59,8 +58,8 @@ register_worker(
       my $a_ip = NetAddr::IP::Lite->new($a_entry->{ip});
 
       if ($a_ip) {
-        ++$v4 if $a_ip->bits == 32;   # IPv4地址
-        ++$v6 if $a_ip->bits == 128;  # IPv6地址
+        ++$v4 if $a_ip->bits == 32;     # IPv4地址
+        ++$v6 if $a_ip->bits == 128;    # IPv6地址
       }
     }
 
@@ -83,7 +82,7 @@ register_worker(
 
 # 注册主阶段工作器 - 通过SNMP收集ARP表
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},    # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
 
@@ -108,8 +107,8 @@ sub get_arps_snmp {
 
   # 遍历物理地址和网络地址映射
   while (my ($arp, $node) = each %$paddr) {
-    my $ip = $netaddr->{$arp} or next;  # 获取对应的IP地址
-    push @arps, {mac => $node, ip => $ip, dns => undef,};  # 构建ARP条目
+    my $ip = $netaddr->{$arp} or next;                       # 获取对应的IP地址
+    push @arps, {mac => $node, ip => $ip, dns => undef,};    # 构建ARP条目
   }
 
   return @arps;
@@ -117,7 +116,7 @@ sub get_arps_snmp {
 
 # 注册主阶段工作器 - 通过CLI收集ARP表
 register_worker(
-  {phase => 'main', driver => 'cli'},  # 主阶段，使用CLI驱动
+  {phase => 'main', driver => 'cli'},    # 主阶段，使用CLI驱动
   sub {
     my ($job, $workerconf) = @_;
 
@@ -126,7 +125,7 @@ register_worker(
       or return Status->defer("arpnip failed: could not SSH connect to $device");
 
     # 应该包含IPv4和IPv6
-    vars->{'arps'} = [$cli->arpnip];  # 通过CLI获取ARP表
+    vars->{'arps'} = [$cli->arpnip];    # 通过CLI获取ARP表
 
     return Status->done("Gathered arp caches from $device");
   }
@@ -134,7 +133,7 @@ register_worker(
 
 # 注册主阶段工作器 - 通过直接数据源收集ARP表
 register_worker(
-  {phase => 'main', driver => 'direct'},  # 主阶段，使用直接驱动
+  {phase => 'main', driver => 'direct'},    # 主阶段，使用直接驱动
   sub {
     my ($job, $workerconf) = @_;
     my $device = $job->device;
@@ -155,11 +154,11 @@ register_worker(
       my $ip  = NetAddr::IP::Lite->new($a_entry->{'ip'} || '');
       my $mac = NetAddr::MAC->new(mac => ($a_entry->{'mac'} || ''));
 
-      next unless $ip and $mac;  # 跳过无效的IP或MAC
-      next if (($ip->addr eq '0.0.0.0')               or ($ip !~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i));  # 跳过无效IP
-      next if (($mac->as_ieee eq '00:00:00:00:00:00') or ($mac->as_ieee !~ m{^$RE{net}{MAC}$}i));  # 跳过无效MAC
+      next unless $ip and $mac;                                                                           # 跳过无效的IP或MAC
+      next if (($ip->addr eq '0.0.0.0') or ($ip !~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i));    # 跳过无效IP
+      next if (($mac->as_ieee eq '00:00:00:00:00:00') or ($mac->as_ieee !~ m{^$RE{net}{MAC}$}i));         # 跳过无效MAC
 
-      push @{vars->{'arps'}}, $a_entry;  # 添加有效的ARP条目
+      push @{vars->{'arps'}}, $a_entry;                                                                   # 添加有效的ARP条目
     }
 
     return Status->done("Received arp cache for $device");

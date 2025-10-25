@@ -13,32 +13,32 @@ use List::MoreUtils 'uniq';
 
 # 注册主阶段工作器 - 发现VLAN信息
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},    # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
 
     my $device = $job->device;
-    return unless $device->in_storage;  # 确保设备已存储
+    return unless $device->in_storage;    # 确保设备已存储
     my $snmp = App::Netdisco::Transport::SNMP->reader_for($device)
       or return Status->defer("discover failed: could not SNMP connect to $device");
 
     # 获取VLAN名称和索引
-    my $v_name  = $snmp->v_name;   # VLAN名称
-    my $v_index = $snmp->v_index;  # VLAN索引
+    my $v_name  = $snmp->v_name;          # VLAN名称
+    my $v_index = $snmp->v_index;         # VLAN索引
 
     # 缓存设备端口以节省数据库查询
     my $device_ports = vars->{'device_ports'} || {map { ($_->port => $_) } $device->ports->all};
 
     # 获取VLAN相关信息
-    my $i_vlan                     = $snmp->i_vlan;                      # 接口VLAN
-    my $i_vlan_type                = $snmp->i_vlan_type;                 # 接口VLAN类型
-    my $interfaces                 = $snmp->interfaces;                  # 接口映射
-    my $i_vlan_membership          = $snmp->i_vlan_membership;           # VLAN成员关系
-    my $i_vlan_membership_untagged = $snmp->i_vlan_membership_untagged; # 未标记VLAN成员关系
+    my $i_vlan                     = $snmp->i_vlan;                        # 接口VLAN
+    my $i_vlan_type                = $snmp->i_vlan_type;                   # 接口VLAN类型
+    my $interfaces                 = $snmp->interfaces;                    # 接口映射
+    my $i_vlan_membership          = $snmp->i_vlan_membership;             # VLAN成员关系
+    my $i_vlan_membership_untagged = $snmp->i_vlan_membership_untagged;    # 未标记VLAN成员关系
 
-    my %p_seen       = ();  # 已处理的VLAN
-    my @portvlans    = ();  # 端口VLAN列表
-    my @active_ports = uniq(keys %$i_vlan_membership_untagged, keys %$i_vlan_membership);  # 活动端口
+    my %p_seen       = ();                                                                   # 已处理的VLAN
+    my @portvlans    = ();                                                                   # 端口VLAN列表
+    my @active_ports = uniq(keys %$i_vlan_membership_untagged, keys %$i_vlan_membership);    # 活动端口
 
     # 构建设备端口VLAN信息，适合DBIC
     foreach my $entry (@active_ports) {
@@ -49,23 +49,23 @@ register_worker(
         next;
       }
 
-      my %this_port_vlans = ();  # 当前端口的VLAN
-      my $type            = $i_vlan_type->{$entry};  # VLAN类型
+      my %this_port_vlans = ();                        # 当前端口的VLAN
+      my $type            = $i_vlan_type->{$entry};    # VLAN类型
 
       # 处理未标记VLAN成员关系
       foreach my $vlan (@{$i_vlan_membership_untagged->{$entry} || []}) {
         next unless $vlan;
-        next if $this_port_vlans{$vlan};  # 跳过已处理的VLAN
-        my $native = ((defined $i_vlan->{$entry}) and ($vlan eq $i_vlan->{$entry})) ? 't' : 'f';  # 是否为原生VLAN
+        next if $this_port_vlans{$vlan};                                                            # 跳过已处理的VLAN
+        my $native = ((defined $i_vlan->{$entry}) and ($vlan eq $i_vlan->{$entry})) ? 't' : 'f';    # 是否为原生VLAN
 
         push @portvlans, {
-          port          => $port,                    # 端口名称
-          vlan          => $vlan,                    # VLAN ID
-          native        => $native,                  # 是否为原生VLAN
-          egress_tag    => 'f',                      # 出口标记（未标记）
-          vlantype      => $type,                    # VLAN类型
-          last_discover => \'LOCALTIMESTAMP',        # 最后发现时间
-          };
+          port          => $port,                # 端口名称
+          vlan          => $vlan,                # VLAN ID
+          native        => $native,              # 是否为原生VLAN
+          egress_tag    => 'f',                  # 出口标记（未标记）
+          vlantype      => $type,                # VLAN类型
+          last_discover => \'LOCALTIMESTAMP',    # 最后发现时间
+        };
 
         ++$this_port_vlans{$vlan};
         ++$p_seen{$vlan};
@@ -74,17 +74,17 @@ register_worker(
       # 处理标记VLAN成员关系
       foreach my $vlan (@{$i_vlan_membership->{$entry} || []}) {
         next unless $vlan;
-        next if $this_port_vlans{$vlan};  # 跳过已处理的VLAN
-        my $native = ((defined $i_vlan->{$entry}) and ($vlan eq $i_vlan->{$entry})) ? 't' : 'f';  # 是否为原生VLAN
+        next if $this_port_vlans{$vlan};                                                            # 跳过已处理的VLAN
+        my $native = ((defined $i_vlan->{$entry}) and ($vlan eq $i_vlan->{$entry})) ? 't' : 'f';    # 是否为原生VLAN
 
         push @portvlans, {
-          port          => $port,                    # 端口名称
-          vlan          => $vlan,                    # VLAN ID
-          native        => $native,                  # 是否为原生VLAN
-          egress_tag    => ($native eq 't' ? 'f' : 't'),  # 出口标记（原生VLAN不标记，其他标记）
-          vlantype      => $type,                    # VLAN类型
-          last_discover => \'LOCALTIMESTAMP',        # 最后发现时间
-          };
+          port          => $port,                           # 端口名称
+          vlan          => $vlan,                           # VLAN ID
+          native        => $native,                         # 是否为原生VLAN
+          egress_tag    => ($native eq 't' ? 'f' : 't'),    # 出口标记（原生VLAN不标记，其他标记）
+          vlantype      => $type,                           # VLAN类型
+          last_discover => \'LOCALTIMESTAMP',               # 最后发现时间
+        };
 
         ++$this_port_vlans{$vlan};
         ++$p_seen{$vlan};
@@ -99,15 +99,15 @@ register_worker(
 
     # 存储端口VLAN信息到数据库
     schema('netdisco')->txn_do(sub {
-      my $gone = $device->port_vlans->delete;  # 删除现有端口VLAN
+      my $gone = $device->port_vlans->delete;        # 删除现有端口VLAN
       debug sprintf ' [%s] vlans - removed %d port VLANs', $device->ip, $gone;
-      $device->port_vlans->populate(\@portvlans);  # 插入新的端口VLAN
+      $device->port_vlans->populate(\@portvlans);    # 插入新的端口VLAN
 
       debug sprintf ' [%s] vlans - added %d new port VLANs', $device->ip, scalar @portvlans;
     });
 
-    my %d_seen      = ();  # 已处理的设备VLAN
-    my @devicevlans = ();  # 设备VLAN列表
+    my %d_seen      = ();    # 已处理的设备VLAN
+    my @devicevlans = ();    # 设备VLAN列表
 
     # 添加命名VLAN到设备
     foreach my $entry (keys %$v_name) {
@@ -122,7 +122,7 @@ register_worker(
     # 同时添加未命名VLAN到设备
     foreach my $vlan (keys %p_seen) {
       next unless $vlan;
-      next if $d_seen{$vlan};  # 跳过已处理的VLAN
+      next if $d_seen{$vlan};    # 跳过已处理的VLAN
       push @devicevlans,
         {vlan => $vlan, description => (sprintf "VLAN %d", $vlan), last_discover => \'LOCALTIMESTAMP',};
     }
@@ -132,9 +132,9 @@ register_worker(
 
     # 存储设备VLAN信息到数据库
     schema('netdisco')->txn_do(sub {
-      my $gone = $device->vlans->delete;  # 删除现有设备VLAN
+      my $gone = $device->vlans->delete;          # 删除现有设备VLAN
       debug sprintf ' [%s] vlans - removed %d device VLANs', $device->ip, $gone;
-      $device->vlans->populate(\@devicevlans);  # 插入新的设备VLAN
+      $device->vlans->populate(\@devicevlans);    # 插入新的设备VLAN
 
       debug sprintf ' [%s] vlans - added %d new device VLANs', $device->ip, scalar @devicevlans;
     });

@@ -18,17 +18,17 @@ use App::Netdisco::Util::Device qw/is_discoverable match_to_setting/;
 
 # 注册主阶段工作器 - 发现端口属性
 register_worker(
-  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
+  {phase => 'main', driver => 'snmp'},    # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
 
     my $device = $job->device;
-    return unless $device->in_storage;  # 确保设备已存储
+    return unless $device->in_storage;    # 确保设备已存储
     my $snmp = App::Netdisco::Transport::SNMP->reader_for($device)
       or return Status->defer("discover failed: could not SNMP connect to $device");
 
-    my $interfaces = $snmp->interfaces || {};  # 获取接口映射
-    my %properties = ();  # 端口属性哈希
+    my $interfaces = $snmp->interfaces || {};    # 获取接口映射
+    my %properties = ();                         # 端口属性哈希
 
     # 缓存设备端口以节省数据库查询
     my $device_ports = vars->{'device_ports'} || {map { ($_->port => $_) } $device->ports->all};
@@ -53,7 +53,7 @@ register_worker(
         next;
       }
 
-      $properties{$port}->{raw_speed} = $raw_speed->{$idx};  # 设置原始速度
+      $properties{$port}->{raw_speed} = $raw_speed->{$idx};    # 设置原始速度
     }
 
     # 获取错误禁用原因
@@ -66,7 +66,7 @@ register_worker(
         next;
       }
 
-      $properties{$port}->{error_disable_cause} = $err_cause->{$idx};  # 设置错误禁用原因
+      $properties{$port}->{error_disable_cause} = $err_cause->{$idx};    # 设置错误禁用原因
     }
 
     # 获取快速启动状态
@@ -79,20 +79,20 @@ register_worker(
         next;
       }
 
-      $properties{$port}->{faststart} = $faststart->{$idx};  # 设置快速启动状态
+      $properties{$port}->{faststart} = $faststart->{$idx};    # 设置快速启动状态
     }
 
     # 获取LLDP/CDP信息
-    my $c_if       = $snmp->c_if       || {};  # CDP接口
-    my $c_cap      = $snmp->c_cap      || {};  # CDP能力
-    my $c_platform = $snmp->c_platform || {}; # CDP平台
+    my $c_if       = $snmp->c_if       || {};    # CDP接口
+    my $c_cap      = $snmp->c_cap      || {};    # CDP能力
+    my $c_platform = $snmp->c_platform || {};    # CDP平台
 
     # 获取LLDP远程设备信息
-    my $rem_media_cap = $snmp->lldp_media_cap  || {};  # LLDP媒体能力
-    my $rem_vendor    = $snmp->lldp_rem_vendor || {};  # LLDP远程厂商
-    my $rem_model     = $snmp->lldp_rem_model  || {};  # LLDP远程型号
-    my $rem_os_ver    = $snmp->lldp_rem_sw_rev || {};  # LLDP远程软件版本
-    my $rem_serial    = $snmp->lldp_rem_serial || {};  # LLDP远程序列号
+    my $rem_media_cap = $snmp->lldp_media_cap  || {};    # LLDP媒体能力
+    my $rem_vendor    = $snmp->lldp_rem_vendor || {};    # LLDP远程厂商
+    my $rem_model     = $snmp->lldp_rem_model  || {};    # LLDP远程型号
+    my $rem_os_ver    = $snmp->lldp_rem_sw_rev || {};    # LLDP远程软件版本
+    my $rem_serial    = $snmp->lldp_rem_serial || {};    # LLDP远程序列号
 
     # 处理LLDP/CDP邻居信息
     foreach my $idx (keys %$c_if) {
@@ -102,13 +102,13 @@ register_worker(
         next;
       }
 
-      my $remote_cap  = $c_cap->{$idx} || [];  # 远程设备能力
-      my $remote_type = Encode::decode('UTF-8', $c_platform->{$idx} || '');  # 远程设备类型
+      my $remote_cap  = $c_cap->{$idx} || [];                                  # 远程设备能力
+      my $remote_type = Encode::decode('UTF-8', $c_platform->{$idx} || '');    # 远程设备类型
 
       # 初始化远程设备属性
-      $properties{$port}->{remote_is_wap}          ||= 'false';  # 是否为无线接入点
-      $properties{$port}->{remote_is_phone}        ||= 'false';  # 是否为电话
-      $properties{$port}->{remote_is_discoverable} ||= 'true';   # 是否可发现
+      $properties{$port}->{remote_is_wap}          ||= 'false';                # 是否为无线接入点
+      $properties{$port}->{remote_is_phone}        ||= 'false';                # 是否为电话
+      $properties{$port}->{remote_is_discoverable} ||= 'true';                 # 是否可发现
 
       # 检查是否为无线接入点（通过平台类型）
       if (match_to_setting($remote_type, 'wap_platforms')) {
@@ -144,29 +144,29 @@ register_worker(
       # 只有在支持库存信息时才获取远程设备详细信息
       next unless scalar grep { defined && m/^inventory$/ } @{$rem_media_cap->{$idx}};
 
-      $properties{$port}->{remote_vendor} = $rem_vendor->{$idx};  # 远程厂商
-      $properties{$port}->{remote_model}  = $rem_model->{$idx};   # 远程型号
-      $properties{$port}->{remote_os_ver} = $rem_os_ver->{$idx}; # 远程操作系统版本
-      $properties{$port}->{remote_serial} = $rem_serial->{$idx}; # 远程序列号
+      $properties{$port}->{remote_vendor} = $rem_vendor->{$idx};    # 远程厂商
+      $properties{$port}->{remote_model}  = $rem_model->{$idx};     # 远程型号
+      $properties{$port}->{remote_os_ver} = $rem_os_ver->{$idx};    # 远程操作系统版本
+      $properties{$port}->{remote_serial} = $rem_serial->{$idx};    # 远程序列号
     }
 
     # 处理忽略设备端口配置
     if (scalar @{setting('ignore_deviceports')}) {
       foreach my $map (@{setting('ignore_deviceports')}) {
-        next unless ref {} eq ref $map;  # 跳过非哈希引用
+        next unless ref {} eq ref $map;                             # 跳过非哈希引用
 
         foreach my $key (sort keys %$map) {
 
           # 左侧匹配设备，右侧匹配端口
           next unless $key and $map->{$key};
-          next unless acl_matches($device, $key);  # 检查设备是否匹配
+          next unless acl_matches($device, $key);                   # 检查设备是否匹配
 
           foreach my $port (sort { sort_port($a, $b) } keys %properties) {
-            next unless acl_matches([$properties{$port}, $device_ports->{$port}], $map->{$key});  # 检查端口是否匹配
+            next unless acl_matches([$properties{$port}, $device_ports->{$port}], $map->{$key});    # 检查端口是否匹配
 
             debug sprintf ' [%s] properties - removing %s (config:ignore_deviceports)', $device->ip, $port;
-            $device_ports->{$port}->delete;    # 从数据库中删除端口
-            delete $properties{$port};  # 从属性中删除端口
+            $device_ports->{$port}->delete;                                                         # 从数据库中删除端口
+            delete $properties{$port};                                                              # 从属性中删除端口
           }
         }
       }
@@ -188,7 +188,7 @@ register_worker(
         next;
       }
 
-      $properties{$port}->{ifindex} = $idx;  # 设置接口索引
+      $properties{$port}->{ifindex} = $idx;    # 设置接口索引
     }
 
     # 如果没有端口属性要记录则返回
@@ -196,7 +196,7 @@ register_worker(
 
     # 存储端口属性到数据库
     schema('netdisco')->txn_do(sub {
-      my $gone = $device->properties_ports->delete;  # 删除现有端口属性
+      my $gone = $device->properties_ports->delete;    # 删除现有端口属性
 
       debug sprintf ' [%s] properties - removed %d port properties', $device->ip, $gone;
 
@@ -204,7 +204,7 @@ register_worker(
       $device->properties_ports->populate([map { {port => $_, %{$properties{$_}}} } keys %properties]);
 
       debug sprintf ' [%s] properties - updating Port Access Entity', $device->ip;
-      update_pae_attributes($device);  # 更新端口访问实体属性
+      update_pae_attributes($device);                  # 更新端口访问实体属性
 
       return Status->info(sprintf ' [%s] properties - added %d new port properties', $device->ip,
         scalar keys %properties);
