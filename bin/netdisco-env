@@ -43,4 +43,4 @@ use App::Netdisco;
 use Dancer qw/:moose :script/;
 
 # 执行传入的命令
-exec $ARGV[0];
+exec @ARGV;
