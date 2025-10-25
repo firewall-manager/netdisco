@@ -1,3 +1,5 @@
+# Netdisco设备邻居发现插件
+# 此模块提供设备邻居发现功能，用于通过SNMP发现和存储网络设备的端口邻居信息
 package App::Netdisco::Worker::Plugin::Discover::Neighbors;
 
 use Dancer ':syntax';
@@ -31,47 +33,54 @@ immediately queued (subject to the filtering by the C<discover_*> settings).
 
 =cut
 
+# 注册主阶段工作器 - 发现设备邻居
 register_worker(
-  {phase => 'main', driver => 'snmp'},
+  {phase => 'main', driver => 'snmp'},  # 主阶段，使用SNMP驱动
   sub {
     my ($job, $workerconf) = @_;
 
     my $device = $job->device;
-    return unless $device->in_storage;
+    return unless $device->in_storage;  # 确保设备已存储
 
+    # 检查邻居发现是否被禁用
     if (acl_matches($device, 'skip_neighbors') or not setting('discover_neighbors')) {
       return Status->info(sprintf ' [%s] neigh - neighbor discovery is disabled on this device', $device->ip);
     }
 
+    # 建立SNMP连接
     my $snmp = App::Netdisco::Transport::SNMP->reader_for($device)
       or return Status->defer("discover failed: could not SNMP connect to $device");
 
+    # 存储邻居信息并获取要发现的设备列表
     my @to_discover = store_neighbors($device);
-    my (%seen_id, %seen_ip) = ((), ());
+    my (%seen_id, %seen_ip) = ((), ());  # 跟踪已处理的ID和IP
 
-    # only enqueue if device is not already discovered,
-    # discover_* config permits the discovery
+    # 只对尚未发现的设备排队，且discover_*配置允许发现
     foreach my $neighbor (@to_discover) {
       my ($ip, $remote_id) = @$neighbor;
+      
+      # 跳过已排队的IP
       if ($seen_ip{$ip}++) {
         debug sprintf ' queue - skip: IP %s is already queued from %s', $ip, $device->ip;
         next;
       }
 
+      # 跳过已排队的远程ID
       if ($remote_id and $seen_id{$remote_id}++) {
         debug sprintf ' queue - skip: %s with ID [%s] already queued from %s', $ip, $remote_id, $device->ip;
         next;
       }
 
       my $newdev = get_device($ip);
-      next if $newdev->in_storage;
+      next if $newdev->in_storage;  # 跳过已存储的设备
 
-      # risk of things going wrong...?
+      # 风险：可能出现问题...?
       # https://quickview.cloudapps.cisco.com/quickview/bug/CSCur12254
 
+      # 将设备加入发现队列
       jq_insert({device => $ip, action => 'discover', ($remote_id ? (device_key => $remote_id) : ()),});
 
-      vars->{'queued'}->{$ip} = true;
+      vars->{'queued'}->{$ip} = true;  # 标记为已排队
       debug sprintf ' [%s] queue - queued %s for discovery (ID: [%s])', $device, $ip, ($remote_id || '');
     }
 
@@ -96,40 +105,43 @@ A list of discovered neighbors will be returned as [C<$ip>, C<$type>] tuples.
 
 =cut
 
+# 存储邻居信息并返回要发现的设备列表
 sub store_neighbors {
   my $device      = shift;
   my @to_discover = ();
 
-  my $snmp = App::Netdisco::Transport::SNMP->reader_for($device) or return ();    # already checked!
+  my $snmp = App::Netdisco::Transport::SNMP->reader_for($device) or return ();    # 已经检查过！
 
-  # first allow any manually configured topology to be set
-  # and do this before we cache the rows in vars->{'device_ports'}
+  # 首先允许设置任何手动配置的拓扑
+  # 在缓存vars->{'device_ports'}中的行之前执行此操作
   set_manual_topology($device);
 
+  # 检查邻居协议是否启用
   if (!defined $snmp->has_topo) {
     debug sprintf ' [%s] neigh - neighbor protocols are not enabled', $device->ip;
     return @to_discover;
   }
 
-  my $interfaces = $snmp->interfaces;
-  my $c_if       = $snmp->c_if;
-  my $c_port     = $snmp->c_port;
-  my $c_id       = $snmp->c_id;
-  my $c_platform = $snmp->c_platform;
-  my $c_cap      = $snmp->c_cap;
+  # 获取SNMP接口和邻居信息
+  my $interfaces = $snmp->interfaces;  # 接口映射
+  my $c_if       = $snmp->c_if;        # CDP接口
+  my $c_port     = $snmp->c_port;      # CDP端口
+  my $c_id       = $snmp->c_id;        # CDP ID
+  my $c_platform = $snmp->c_platform;  # CDP平台
+  my $c_cap      = $snmp->c_cap;       # CDP能力
 
-  # cache the device ports to save hitting the database for many single rows
+  # 缓存设备端口以节省数据库查询
   vars->{'device_ports'} = {map { ($_->port => $_) } $device->ports->reset->all};
   my $device_ports = vars->{'device_ports'};
 
-  # v4 and v6 neighbor tables
-  my $c_ip   = ($snmp->c_ip || {});
-  my %c_ipv6 = %{($snmp->can('hasLLDP') and $snmp->hasLLDP) ? ($snmp->lldp_ipv6 || {}) : {}};
+  # IPv4和IPv6邻居表
+  my $c_ip   = ($snmp->c_ip || {});  # CDP IP地址
+  my %c_ipv6 = %{($snmp->can('hasLLDP') and $snmp->hasLLDP) ? ($snmp->lldp_ipv6 || {}) : {}};  # LLDP IPv6地址
 
-  # remove keys with undef values, as c_ip does
+  # 删除未定义值的键，与c_ip保持一致
   delete @c_ipv6{grep { not defined $c_ipv6{$_} } keys %c_ipv6};
 
-  # allow fallback from v6 to try v4
+  # 允许从IPv6回退到IPv4
   my %success_with_index = ();
 
 NEIGHBOR:

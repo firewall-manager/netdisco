@@ -1,3 +1,5 @@
+# Netdisco MAC地址收集插件
+# 此模块提供MAC地址收集功能，用于通过SNMP、CLI或直接数据源收集网络设备的MAC地址转发表
 package App::Netdisco::Worker::Plugin::Macsuck::Nodes;
 
 use Dancer ':syntax';
@@ -20,25 +22,24 @@ use Regexp::Common 'net';
 use NetAddr::MAC    ();
 use List::MoreUtils ();
 
+# 注册早期阶段工作器 - 准备通用数据
 register_worker(
-  {phase => 'early', title => 'prepare common data'},
+  {phase => 'early', title => 'prepare common data'},  # 早期阶段，准备通用数据
   sub {
 
     my ($job, $workerconf) = @_;
     my $device = $job->device;
 
-    # would be possible just to use LOCALTIMESTAMP on updated records, but by using this
-    # same value for them all, we can if we want add a job at the end to
-    # select and do something with the updated set (see set archive, below)
+    # 设置时间戳，使用相同值便于后续处理
     vars->{'timestamp'}
-      = ($job->is_offline and $job->entered)
+      = ($job->is_offline and $job->entered)  # 离线作业使用进入时间
       ? (schema('netdisco')->storage->dbh->quote($job->entered) . '::timestamp')
-      : 'to_timestamp(' . (join '.', gettimeofday) . ')::timestamp';
+      : 'to_timestamp(' . (join '.', gettimeofday) . ')::timestamp';  # 在线作业使用当前时间
 
-    # initialise the cache
+    # 初始化转发表缓存
     vars->{'fwtable'} = {};
 
-    # cache the device ports to save hitting the database for many single rows
+    # 缓存设备端口以节省数据库查询
     vars->{'device_ports'} = {map { ($_->port => $_) }
         $device->ports(undef, {prefetch => ['properties', {neighbor_alias => 'device'}]})->all};
   }
