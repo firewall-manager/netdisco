@@ -7,11 +7,14 @@ use Dancer::Plugin::DBIC 'schema';
 
 use App::Netdisco::Util::PortAccessEntity qw/update_pae_attributes/;
 
-register_worker({ phase => 'main', driver => 'snmp' }, sub {
-  my ($job, $workerconf) = @_;
-  my $device = $job->device;
+register_worker(
+  {phase => 'main', driver => 'snmp'},
+  sub {
+    my ($job, $workerconf) = @_;
+    my $device = $job->device;
 
-  return update_pae_attributes($device)
-});
+    return update_pae_attributes($device);
+  }
+);
 
 true;

@@ -1,0 +1,253 @@
+👉 处理文件: /works/netdisco/lib/Dancer/Template/NetdiscoTemplateToolkit.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/Dancer/Template/NetdiscoTemplateToolkit.pm
+✅ 已修复并删除备份: /works/netdisco/lib/Dancer/Template/NetdiscoTemplateToolkit.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Loader.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Loader.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Loader.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Runner.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Runner.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Runner.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Delete/Hooks.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Delete/Hooks.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Delete/Hooks.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtwalk.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtwalk.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtwalk.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PrimeSkiplist.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PrimeSkiplist.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PrimeSkiplist.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/TastyJobs.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/TastyJobs.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/TastyJobs.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Location.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Location.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Location.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/AddPseudoDevice.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/AddPseudoDevice.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/AddPseudoDevice.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DumpConfig.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DumpConfig.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DumpConfig.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PingSweep.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PingSweep.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PingSweep.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DumpInfoCache.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DumpInfoCache.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DumpInfoCache.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook/HTTP.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook/HTTP.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook/HTTP.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook/Exec.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook/Exec.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Hook/Exec.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Renumber.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Renumber.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Renumber.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Psql.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Psql.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Psql.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/ExpireNodes.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/ExpireNodes.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/ExpireNodes.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Show.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Show.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Show.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PortControl.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PortControl.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PortControl.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Contact.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Contact.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Contact.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DiscoverAll.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DiscoverAll.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/DiscoverAll.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtstat.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtstat.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtstat.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Nodes.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Nodes.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Nodes.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Hooks.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Hooks.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Hooks.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Subnets.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Subnets.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip/Subnets.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PortName.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PortName.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PortName.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macwalk.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macwalk.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macwalk.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/NodeMonitor.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/NodeMonitor.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/NodeMonitor.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Scheduler.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Scheduler.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Scheduler.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Wireless.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Wireless.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Wireless.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/VLANs.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/VLANs.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/VLANs.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Properties/Tags.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Properties/Tags.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Properties/Tags.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Hooks.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Hooks.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Hooks.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Neighbors.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Neighbors.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Neighbors.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/PortPower.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/PortPower.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/PortPower.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/NextHopNeighbors.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/NextHopNeighbors.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/NextHopNeighbors.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/CanonicalIP.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/CanonicalIP.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/CanonicalIP.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Properties.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Properties.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Properties.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Neighbors/DOCSIS.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Neighbors/DOCSIS.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Neighbors/DOCSIS.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Entities.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Entities.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/Entities.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/PortProperties.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/PortProperties.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Discover/PortProperties.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/Nodes.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/Nodes.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/Nodes.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/Hooks.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/Hooks.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/Hooks.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/InterfacesStatus.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/InterfacesStatus.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/InterfacesStatus.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/WirelessNodes.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/WirelessNodes.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/WirelessNodes.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/PortAccessEntity.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/PortAccessEntity.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck/PortAccessEntity.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/LoadMIBs.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/LoadMIBs.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/LoadMIBs.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Internal/SNMPFastDiscover.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Internal/SNMPFastDiscover.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Internal/SNMPFastDiscover.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Internal/BackendFQDN.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Internal/BackendFQDN.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Internal/BackendFQDN.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpwalk.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpwalk.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpwalk.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Vlan.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Vlan.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Vlan.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Expire.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Expire.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Expire.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtstat/Core.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtstat/Core.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Nbtstat/Core.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Delete.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Delete.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Delete.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Snapshot.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Snapshot.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Snapshot.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PythonShim.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PythonShim.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/PythonShim.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Arpnip.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/MakeRancidConf.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/MakeRancidConf.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/MakeRancidConf.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Power.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Power.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Power.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Stats.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Stats.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Stats.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Macsuck.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Vlan/Core.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Vlan/Core.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Vlan/Core.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Graph.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Graph.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Graph.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/GetAPIKey.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/GetAPIKey.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/GetAPIKey.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Linter.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Linter.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin/Linter.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Plugin.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Plugin.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Plugin.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Worker/Status.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Worker/Status.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Worker/Status.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Backend/Role/Manager.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Backend/Role/Manager.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Backend/Role/Manager.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Backend/Role/Scheduler.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Backend/Role/Scheduler.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Backend/Role/Scheduler.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Backend/Role/Poller.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Backend/Role/Poller.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Backend/Role/Poller.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/Backend/Job.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/Backend/Job.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/Backend/Job.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/ResultSet.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/ResultSet.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/ResultSet.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/SchemaVersioned.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/SchemaVersioned.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/SchemaVersioned.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/ExplicitLocking.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/ExplicitLocking.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/ExplicitLocking.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/SetOperations.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/SetOperations.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/SetOperations.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/NodeIp.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result/NodeIp.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result/NodeIp.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/Session.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result/Session.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result/Session.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/DeviceModule.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result/DeviceModule.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result/DeviceModule.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/SNMPObject.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result/SNMPObject.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result/SNMPObject.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/Node.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result/Node.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result/Node.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/UserLog.pm
+⚠️  检测到格式不一致: /works/netdisco/lib/App/Netdisco/DB/Result/UserLog.pm
+✅ 已修复并删除备份: /works/netdisco/lib/App/Netdisco/DB/Result/UserLog.pm
+👉 处理文件: /works/netdisco/lib/App/Netdisco/DB/Result/Oui.pm

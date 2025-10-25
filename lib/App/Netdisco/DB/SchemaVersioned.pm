@@ -14,9 +14,11 @@ use DBIx::Class::Carp;
 # 应用SQL语句
 # 在事务中安全执行SQL语句，支持错误处理和调试跟踪
 sub apply_statement {
-    my ($self, $statement) = @_;
-    try { $self->storage->txn_do(sub { $self->storage->dbh->do($statement) }) }
-    catch { carp "SQL was: $statement" if $ENV{DBIC_TRACE} };
+  my ($self, $statement) = @_;
+  try {
+    $self->storage->txn_do(sub { $self->storage->dbh->do($statement) })
+  }
+  catch { carp "SQL was: $statement" if $ENV{DBIC_TRACE} };
 }
 
 1;

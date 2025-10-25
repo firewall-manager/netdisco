@@ -11,10 +11,13 @@ use App::Netdisco::Util::Statistics ();
 
 # 注册主阶段工作器
 # 更新系统统计信息
-register_worker({ phase => 'main' }, sub {
-  # 调用统计信息更新工具
-  App::Netdisco::Util::Statistics::update_stats();
-  return Status->done('Updated statistics');
-});
+register_worker(
+  {phase => 'main'},
+  sub {
+    # 调用统计信息更新工具
+    App::Netdisco::Util::Statistics::update_stats();
+    return Status->done('Updated statistics');
+  }
+);
 
 true;

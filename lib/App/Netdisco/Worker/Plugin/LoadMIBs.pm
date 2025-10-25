@@ -10,152 +10,153 @@ use aliased 'App::Netdisco::Worker::Status';
 use Dancer::Plugin::DBIC 'schema';
 
 use Storable 'thaw';
-use MIME::Base64 qw/encode_base64 decode_base64/;
+use MIME::Base64          qw/encode_base64 decode_base64/;
 use File::Spec::Functions qw(splitdir catfile catdir);
-use File::Slurper qw(read_lines write_text);
+use File::Slurper         qw(read_lines write_text);
 
 use App::Netdisco::Util::Device 'get_device';
 use App::Netdisco::Util::Snapshot 'make_snmpwalk_browsable';
+
 # use DDP;
 
 # 注册主阶段工作器
 # 加载SNMP MIB对象和过滤器
-register_worker({ phase => 'main' }, sub {
-  my ($job, $workerconf) = @_;
+register_worker(
+  {phase => 'main'},
+  sub {
+    my ($job, $workerconf) = @_;
 
-  my $vendor = $job->extra;
-  debug sprintf 'loadmibs - loading netdisco-mibs object cache%s',
-    ($vendor ? (sprintf ' for vendor "%s"', $vendor) : '');
+    my $vendor = $job->extra;
+    debug sprintf 'loadmibs - loading netdisco-mibs object cache%s',
+      ($vendor ? (sprintf ' for vendor "%s"', $vendor) : '');
 
-  # 设置MIB目录路径
-  my $home = (setting('mibhome') || catdir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'netdisco-mibs'));
-  my $reports = catdir( $home, 'EXTRAS', 'reports' );
-  
-  # 获取可用的OID映射文件
-  my @maps = map  { (splitdir($_))[-1] }
-             grep { ! m/^(?:EXTRAS)$/ }
-             grep { ! m/\./ }
-             grep { -f }
-             glob (catfile( $reports, '*_oids' ));
+    # 设置MIB目录路径
+    my $home    = (setting('mibhome') || catdir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'netdisco-mibs'));
+    my $reports = catdir($home, 'EXTRAS', 'reports');
 
-  # 读取报告文件
-  my @report = ();
-  if ($vendor) {
+    # 获取可用的OID映射文件
+    my @maps = map { (splitdir($_))[-1] }
+      grep { !m/^(?:EXTRAS)$/ } grep { !m/\./ } grep {-f} glob(catfile($reports, '*_oids'));
+
+    # 读取报告文件
+    my @report = ();
+    if ($vendor) {
+
       # 读取特定供应商的OID文件
-      push @report, read_lines( catfile( $reports, "${vendor}_oids" ), 'latin-1' );
-  }
-  else {
+      push @report, read_lines(catfile($reports, "${vendor}_oids"), 'latin-1');
+    }
+    else {
       # 读取所有标准OID文件
-      push @report, read_lines( catfile( $reports, $_ ), 'latin-1' )
-        for (qw(rfc_oids net-snmp_oids cisco_oids), @maps);
-  }
-  
-  # 初始化浏览器对象和统计变量
-  my @browser = ();
-  my %children = ();
-  my %seenoid = ();
+      push @report, read_lines(catfile($reports, $_), 'latin-1') for (qw(rfc_oids net-snmp_oids cisco_oids), @maps);
+    }
 
-  # 解析报告行并构建浏览器对象
-  foreach my $line (@report) {
-    my ($oid, $qual_leaf, $type, $access, $index, $status, $enum, $descr) = split m/,/, $line, 8;
-    next unless defined $oid and defined $qual_leaf;
-    next if ++$seenoid{$oid} > 1;
+    # 初始化浏览器对象和统计变量
+    my @browser  = ();
+    my %children = ();
+    my %seenoid  = ();
 
-    # 解析MIB和叶子名称
-    my ($mib, $leaf) = split m/::/, $qual_leaf;
-    my @oid_parts = grep {length} (split m/\./, $oid);
-    
-    # 计算子节点数量
-    ++$children{ join '.', '', @oid_parts[0 .. (@oid_parts - 2)] }
-      if scalar @oid_parts > 1;
+    # 解析报告行并构建浏览器对象
+    foreach my $line (@report) {
+      my ($oid, $qual_leaf, $type, $access, $index, $status, $enum, $descr) = split m/,/, $line, 8;
+      next unless defined $oid and defined $qual_leaf;
+      next if ++$seenoid{$oid} > 1;
 
-    # 构建浏览器对象
-    push @browser, {
-      oid    => $oid,
-      oid_parts => [ @oid_parts ],
-      mib    => $mib,
-      leaf   => $leaf,
-      type   => $type,
-      access => $access,
-      index  => [($index ? (split m/:/, $index) : ())],
-      status => $status,
-      enum   => [($enum  ? (split m/:/, $enum ) : ())],
-      descr  => $descr,
-    };
-  }
+      # 解析MIB和叶子名称
+      my ($mib, $leaf) = split m/::/, $qual_leaf;
+      my @oid_parts = grep {length} (split m/\./, $oid);
 
-  # 设置每个对象的子节点数量
-  foreach my $row (@browser) {
-    $row->{num_children} = $children{ $row->{oid} } || 0;
-  }
+      # 计算子节点数量
+      ++$children{join '.', '', @oid_parts[0 .. (@oid_parts - 2)]} if scalar @oid_parts > 1;
 
-  debug sprintf "loadmibs - loaded %d objects from netdisco-mibs",
-    scalar @browser;
+      # 构建浏览器对象
+      push @browser, {
+        oid       => $oid,
+        oid_parts => [@oid_parts],
+        mib       => $mib,
+        leaf      => $leaf,
+        type      => $type,
+        access    => $access,
+        index     => [($index ? (split m/:/, $index) : ())],
+        status    => $status,
+        enum      => [($enum ? (split m/:/, $enum) : ())],
+        descr     => $descr,
+        };
+    }
 
-  # 更新SNMP对象数据库
-  schema('netdisco')->txn_do(sub {
-    my $gone = schema('netdisco')->resultset('SNMPObject')->delete;
-    debug sprintf 'loadmibs - removed %d oids', $gone;
-    schema('netdisco')->resultset('SNMPObject')->populate(\@browser);
-    debug sprintf 'loadmibs - added %d new oids', scalar @browser;
-  });
+    # 设置每个对象的子节点数量
+    foreach my $row (@browser) {
+      $row->{num_children} = $children{$row->{oid}} || 0;
+    }
 
-  # 处理SNMP过滤器数据
-  my @filters = <DATA>;
-  $_ = [split m/\t/, $_] for @filters;
-  $_ = {leaf => $_->[0], subname => $_->[1]} for @filters;
-  chomp( $_->{subname} ) for @filters;
+    debug sprintf "loadmibs - loaded %d objects from netdisco-mibs", scalar @browser;
 
-  # 更新SNMP过滤器数据库
-  schema('netdisco')->txn_do(sub {
-    my $gone = schema('netdisco')->resultset('SNMPFilter')->delete;
-    debug sprintf 'loadmibs - removed %d filters', $gone;
-    schema('netdisco')->resultset('SNMPFilter')->populate(\@filters);
-    debug sprintf 'loadmibs - added %d new filters', scalar @filters;
-  });
+    # 更新SNMP对象数据库
+    schema('netdisco')->txn_do(sub {
+      my $gone = schema('netdisco')->resultset('SNMPObject')->delete;
+      debug sprintf 'loadmibs - removed %d oids', $gone;
+      schema('netdisco')->resultset('SNMPObject')->populate(\@browser);
+      debug sprintf 'loadmibs - added %d new oids', scalar @browser;
+    });
 
-  # 将loadmibs之前的快照提升为可浏览
-  schema('netdisco')->txn_do(sub {
-    my @devices = schema('netdisco')
-          ->resultset('DeviceBrowser')
-          ->search({ -bool => \q{ array_length(oid_parts, 1) IS NULL } })
-          ->distinct('ip')->get_column('ip')->all;
+    # 处理SNMP过滤器数据
+    my @filters = <DATA>;
+    $_ = [split m/\t/, $_]                     for @filters;
+    $_ = {leaf => $_->[0], subname => $_->[1]} for @filters;
+    chomp($_->{subname}) for @filters;
 
-    foreach my $ip (@devices) {
+    # 更新SNMP过滤器数据库
+    schema('netdisco')->txn_do(sub {
+      my $gone = schema('netdisco')->resultset('SNMPFilter')->delete;
+      debug sprintf 'loadmibs - removed %d filters', $gone;
+      schema('netdisco')->resultset('SNMPFilter')->populate(\@filters);
+      debug sprintf 'loadmibs - added %d new filters', scalar @filters;
+    });
+
+    # 将loadmibs之前的快照提升为可浏览
+    schema('netdisco')->txn_do(sub {
+      my @devices
+        = schema('netdisco')
+        ->resultset('DeviceBrowser')
+        ->search({-bool => \q{ array_length(oid_parts, 1) IS NULL }})
+        ->distinct('ip')
+        ->get_column('ip')
+        ->all;
+
+      foreach my $ip (@devices) {
         my $dev = get_device($ip);
         next unless $dev->in_storage;
         debug sprintf 'loadmibs - promoting snapshot for %s to be browsable', $dev->ip;
         make_snmpwalk_browsable($dev);
-    }
-  });
+      }
+    });
 
-  # 传统快照升级
-  schema('netdisco')->txn_do(sub {
-    my $legacy_rs = schema('netdisco')
-          ->resultset('DeviceBrowser')
-          ->search({ -bool => \q{ jsonb_typeof(value) != 'array' } });
+    # 传统快照升级
+    schema('netdisco')->txn_do(sub {
+      my $legacy_rs
+        = schema('netdisco')->resultset('DeviceBrowser')->search({-bool => \q{ jsonb_typeof(value) != 'array' }});
 
-    if ($legacy_rs->count) {
+      if ($legacy_rs->count) {
         my @rows = $legacy_rs->hri->all;
         my $gone = $legacy_rs->delete;
-        
+
         # 传统格式看起来像encode_base64( nfreeze( [$data] ) )
         foreach my $row (@rows) {
-            my $value = (@{ thaw( decode_base64( from_json($row->{value}) ) ) })[0];
-            $value = (ref {} eq ref $value)
-              ? { map {($_ => (defined $value->{$_} ? encode_base64($value->{$_}, '') : undef))}
-                  keys %$value }
-              : (defined $value ? encode_base64($value, '') : undef);
-            $row->{value} = to_json([$value]);
+          my $value = (@{thaw(decode_base64(from_json($row->{value})))})[0];
+          $value
+            = (ref {} eq ref $value)
+            ? {map { ($_ => (defined $value->{$_} ? encode_base64($value->{$_}, '') : undef)) } keys %$value}
+            : (defined $value ? encode_base64($value, '') : undef);
+          $row->{value} = to_json([$value]);
         }
 
         schema('netdisco')->resultset('DeviceBrowser')->populate(\@rows);
         debug sprintf 'loadmibs - updated %d legacy snapshot rows', scalar @rows;
-    }
-  });
+      }
+    });
 
-  return Status->done('Loaded MIBs');
-});
+    return Status->done('Loaded MIBs');
+  }
+);
 
 true;
 

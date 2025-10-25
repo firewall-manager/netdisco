@@ -11,10 +11,13 @@ use App::Netdisco::Util::Graph ();
 
 # 注册主阶段工作器
 # 生成网络拓扑图数据
-register_worker({ phase => 'main' }, sub {
-  # 调用图生成工具
-  App::Netdisco::Util::Graph::graph();
-  return Status->done('Generated graph data');
-});
+register_worker(
+  {phase => 'main'},
+  sub {
+    # 调用图生成工具
+    App::Netdisco::Util::Graph::graph();
+    return Status->done('Generated graph data');
+  }
+);
 
 true;

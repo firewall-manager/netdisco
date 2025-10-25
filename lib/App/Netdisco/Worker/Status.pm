@@ -13,15 +13,9 @@ use namespace::clean;
 
 # 定义状态属性
 # 包含状态、日志和阶段信息
-has 'status' => (
-  is => 'rw',
-  default => undef,
-);
+has 'status' => (is => 'rw', default => undef,);
 
-has [qw/log phase/] => (
-  is => 'rw',
-  default => '',
-);
+has [qw/log phase/] => (is => 'rw', default => '',);
 
 =head1 INTRODUCTION
 
@@ -75,10 +69,10 @@ sub _make_new {
 }
 
 # 状态创建方法
-sub done  { shift->_make_new('done', @_)  } # 完成状态
-sub info  { shift->_make_new('info', @_)  } # 信息状态
-sub defer { shift->_make_new('defer', @_) } # 延迟状态
-sub error { shift->_make_new('error', @_) } # 错误状态
+sub done  { shift->_make_new('done',  @_) }    # 完成状态
+sub info  { shift->_make_new('info',  @_) }    # 信息状态
+sub defer { shift->_make_new('defer', @_) }    # 延迟状态
+sub error { shift->_make_new('error', @_) }    # 错误状态
 
 =head2 is_ok
 
@@ -99,9 +93,10 @@ sub not_ok { return (not $_[0]->is_ok) }
 sub level {
   my $self = shift;
   return (($self->status eq 'error') ? 4
-        : ($self->status eq 'done')  ? 3
-        : ($self->status eq 'defer') ? 2
-        : ($self->status eq 'info')  ? 1 : 0);
+    : ($self->status eq 'done')  ? 3
+    : ($self->status eq 'defer') ? 2
+    : ($self->status eq 'info')  ? 1
+    :                              0);
 }
 
 1;

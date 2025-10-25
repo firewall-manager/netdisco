@@ -11,17 +11,20 @@ use Data::Printer;
 
 # 注册主阶段工作器
 # 转储系统配置信息
-register_worker({ phase => 'main' }, sub {
-  my ($job, $workerconf) = @_;
-  my $extra = $job->extra;
+register_worker(
+  {phase => 'main'},
+  sub {
+    my ($job, $workerconf) = @_;
+    my $extra = $job->extra;
 
-  # 获取配置信息
-  my $config = config();
-  my $dump = ($extra ? $config->{$extra} : $config);
-  
-  # 输出配置信息
-  p $dump;
-  return Status->done('Dumped config');
-});
+    # 获取配置信息
+    my $config = config();
+    my $dump   = ($extra ? $config->{$extra} : $config);
+
+    # 输出配置信息
+    p $dump;
+    return Status->done('Dumped config');
+  }
+);
 
 true;

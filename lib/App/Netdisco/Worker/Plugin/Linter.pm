@@ -11,14 +11,16 @@ use App::Netdisco::Worker::Plugin;
 
 # 注册早期阶段工作器
 # 设置代码检查文件路径
-register_worker({ phase => 'early' }, sub {
-  my ($job, $workerconf) = @_;
-  my $file = $job->extra and return;
+register_worker(
+  {phase => 'early'},
+  sub {
+    my ($job, $workerconf) = @_;
+    my $file = $job->extra and return;
 
-  # 设置要检查的文件路径
-  vars->{'file_to_lint'} ||=
-    Path::Class::Dir->new( $ENV{DANCER_ENVDIR} )
-      ->file( $ENV{DANCER_ENVIRONMENT} .'.yml' )->stringify;
-});
+    # 设置要检查的文件路径
+    vars->{'file_to_lint'}
+      ||= Path::Class::Dir->new($ENV{DANCER_ENVDIR})->file($ENV{DANCER_ENVIRONMENT} . '.yml')->stringify;
+  }
+);
 
 true;

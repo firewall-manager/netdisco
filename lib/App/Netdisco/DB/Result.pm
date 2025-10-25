@@ -15,12 +15,10 @@ BEGIN {
   # 此替换将避免关系名称覆盖字段名称的问题
   # 导致TO_JSON返回对象实例，破坏to_json
   *DBIx::Class::Helper::Row::ToJSON::TO_JSON = sub {
-      my $self = shift;
-      my $columns_info = $self->columns_info($self->serializable_columns);
-      my $columns_data = { $self->get_columns };
-      return {
-         map +($_ => $columns_data->{$_}), keys %$columns_info
-      };
+    my $self         = shift;
+    my $columns_info = $self->columns_info($self->serializable_columns);
+    my $columns_data = {$self->get_columns};
+    return {map +($_ => $columns_data->{$_}), keys %$columns_info};
   };
 }
 
@@ -30,10 +28,7 @@ BEGIN {
 # 不可序列化的数据类型
 # 定义不能进行JSON序列化的数据类型
 sub unserializable_data_types {
-   return {
-      blob  => 1,
-      ntext => 1,
-   };
+  return {blob => 1, ntext => 1,};
 }
 
 1;

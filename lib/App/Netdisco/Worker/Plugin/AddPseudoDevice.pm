@@ -14,14 +14,15 @@ use NetAddr::IP::Lite ':lower';
 
 # 注册检查阶段工作器
 # 验证添加伪设备的参数
-register_worker({ phase => 'check' }, sub {
+register_worker(
+  {phase => 'check'},
+  sub {
     my ($job, $workerconf) = @_;
     my $name  = $job->extra;
     my $ports = $job->port;
 
     # 检查设备IP参数
-    return Status->error('Missing or invalid device IP (-d).')
-      unless $job->device;
+    return Status->error('Missing or invalid device IP (-d).') unless $job->device;
     my $devip = $job->device->ip;
 
     # 检查设备名称参数
@@ -32,20 +33,21 @@ register_worker({ phase => 'check' }, sub {
 
     # 验证IP地址有效性
     my $ip = NetAddr::IP::Lite->new($devip);
-    return Status->error('Missing or invalid device IP (-d).')
-      unless ($ip and $ip->addr ne '0.0.0.0');
+    return Status->error('Missing or invalid device IP (-d).') unless ($ip and $ip->addr ne '0.0.0.0');
 
     # 检查端口数量参数
     return Status->error('Missing or invalid number of device ports (-p).')
-      unless $ports
-      and $ports =~ m/^[[:digit:]]+$/;
+      unless $ports and $ports =~ m/^[[:digit:]]+$/;
 
     return Status->done('Pseudo Devive can be added');
-});
+  }
+);
 
 # 注册主阶段工作器
 # 创建伪设备并添加到数据库
-register_worker({ phase => 'main' }, sub {
+register_worker(
+  {phase => 'main'},
+  sub {
     my ($job, $workerconf) = @_;
     my $devip = $job->device->ip;
     my $name  = $job->extra;
@@ -53,38 +55,30 @@ register_worker({ phase => 'main' }, sub {
 
     # 在数据库事务中创建伪设备
     schema('netdisco')->txn_do(sub {
-      my $device = schema('netdisco')->resultset('Device')
-        ->create({
-          ip => $devip,
-          dns => (hostname_from_ip($devip) || ''),
-          name => $name,
-          vendor => 'netdisco',
-          model => 'pseudodevice',
-          num_ports => $ports,
-          os => 'netdisco',
-          os_ver => pretty_version($App::Netdisco::VERSION, 3),
-          layers => '00000100',
-          last_discover => \'LOCALTIMESTAMP',
-          is_pseudo => \'true',
-        });
+      my $device = schema('netdisco')->resultset('Device')->create({
+        ip            => $devip,
+        dns           => (hostname_from_ip($devip) || ''),
+        name          => $name,
+        vendor        => 'netdisco',
+        model         => 'pseudodevice',
+        num_ports     => $ports,
+        os            => 'netdisco',
+        os_ver        => pretty_version($App::Netdisco::VERSION, 3),
+        layers        => '00000100',
+        last_discover => \'LOCALTIMESTAMP',
+        is_pseudo     => \'true',
+      });
       return unless $device;
 
       # 创建设备端口
-      $device->ports->populate([
-        [qw/port type descr/],
-        map {["Port$_", 'other', "Port$_"]} @{[1 .. $ports]},
-      ]);
+      $device->ports->populate([[qw/port type descr/], map { ["Port$_", 'other', "Port$_"] } @{[1 .. $ports]},]);
 
       # device_ip表用于显示拓扑是否"损坏"
-      schema('netdisco')->resultset('DeviceIp')
-        ->create({
-          ip => $devip,
-          alias => $devip,
-        });
+      schema('netdisco')->resultset('DeviceIp')->create({ip => $devip, alias => $devip,});
     });
 
-    return Status->done(
-      sprintf "Pseudo Devive %s (%s) added", $devip, $name);
-});
+    return Status->done(sprintf "Pseudo Devive %s (%s) added", $devip, $name);
+  }
+);
 
 true;

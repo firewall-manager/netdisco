@@ -25,31 +25,29 @@ sub worker_begin { (shift)->{started} = time }
 # 轮询器的主要工作循环，从队列获取作业并执行
 sub worker_body {
   my $self = shift;
-  my $wid = $self->wid;
+  my $wid  = $self->wid;
 
   while (1) {
-      prctl sprintf 'nd2: #%s poll: idle', $wid;
+    prctl sprintf 'nd2: #%s poll: idle', $wid;
 
-      my $job = $self->{queue}->dequeue(1);
-      next unless defined $job;
+    my $job = $self->{queue}->dequeue(1);
+    next unless defined $job;
 
-      try {
-          $job->started(scalar localtime);
-          prctl sprintf 'nd2: #%s poll: #%s: %s',
-            $wid, $job->id, $job->display_name;
-          info sprintf "pol (%s): starting %s job(%s) at %s",
-            $wid, $job->action, $job->id, $job->started;
-          $self->run($job);
-      }
-      catch {
-          $job->status('error');
-          $job->log("error running job: $_");
-          $self->sendto('stderr', $job->log ."\n");
-      };
+    try {
+      $job->started(scalar localtime);
+      prctl sprintf 'nd2: #%s poll: #%s: %s', $wid, $job->id, $job->display_name;
+      info sprintf "pol (%s): starting %s job(%s) at %s", $wid, $job->action, $job->id, $job->started;
+      $self->run($job);
+    }
+    catch {
+      $job->status('error');
+      $job->log("error running job: $_");
+      $self->sendto('stderr', $job->log . "\n");
+    };
 
-      $self->close_job($job);
-      sleep( setting('workers')->{'min_runtime'} || 0 );
-      $self->exit(0); # 回收工作进程
+    $self->close_job($job);
+    sleep(setting('workers')->{'min_runtime'} || 0);
+    $self->exit(0);    # 回收工作进程
   }
 }
 
@@ -57,19 +55,19 @@ sub worker_body {
 # 完成作业处理，根据状态决定是延迟还是完成
 sub close_job {
   my ($self, $job) = @_;
-  my $now  = scalar localtime;
+  my $now = scalar localtime;
 
-  info sprintf "pol (%s): wrapping up %s job(%s) - status %s at %s",
-    $self->wid, $job->action, $job->id, $job->status, $now;
+  info sprintf "pol (%s): wrapping up %s job(%s) - status %s at %s", $self->wid, $job->action, $job->id, $job->status,
+    $now;
 
   try {
-      if ($job->status eq 'defer') {
-          jq_defer($job);
-      }
-      else {
-          $job->finished($now);
-          jq_complete($job);
-      }
+    if ($job->status eq 'defer') {
+      jq_defer($job);
+    }
+    else {
+      $job->finished($now);
+      jq_complete($job);
+    }
   }
   catch { $self->sendto('stderr', "error closing job: $_\n") };
 }

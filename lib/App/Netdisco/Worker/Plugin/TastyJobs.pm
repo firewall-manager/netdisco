@@ -14,20 +14,24 @@ use App::Netdisco::JobQueue 'jq_getsome';
 
 # 注册主阶段工作器
 # 显示作业队列信息
-register_worker({ phase => 'main' }, sub {
-  my ($job, $workerconf) = @_;
-  # 获取要显示的作业数量
-  my $num_slots = ($job->extra || 20);
+register_worker(
+  {phase => 'main'},
+  sub {
+    my ($job, $workerconf) = @_;
 
-  # 使用事务保护获取作业
-  my $txn_guard = schema('netdisco')->storage->txn_scope_guard;
-  my @jobs = map {  { %{ $_ } } } jq_getsome($num_slots);
-  undef $txn_guard;
+    # 获取要显示的作业数量
+    my $num_slots = ($job->extra || 20);
 
-  # 使用Data::Printer显示作业信息
-  Data::Printer::p( @jobs );
+    # 使用事务保护获取作业
+    my $txn_guard = schema('netdisco')->storage->txn_scope_guard;
+    my @jobs      = map { { %{$_} } } jq_getsome($num_slots);
+    undef $txn_guard;
 
-  return Status->done("Showed the tastiest jobs");
-});
+    # 使用Data::Printer显示作业信息
+    Data::Printer::p(@jobs);
+
+    return Status->done("Showed the tastiest jobs");
+  }
+);
 
 true;

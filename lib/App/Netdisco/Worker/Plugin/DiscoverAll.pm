@@ -12,42 +12,42 @@ use Dancer::Plugin::DBIC 'schema';
 
 # 注册检查阶段工作器
 # 验证全量发现操作的准备状态
-register_worker({ phase => 'check' }, sub {
-  # 检查是否已初始化跳过列表
-  return Status->defer("discoverall skipped: have not yet primed skiplist")
-    unless schema(vars->{'tenant'})->resultset('DeviceSkip')
-      ->search({
-        backend => setting('workers')->{'BACKEND'},
-        device  => '255.255.255.255',
-      })->count();
+register_worker(
+  {phase => 'check'},
+  sub {
+    # 检查是否已初始化跳过列表
+    return Status->defer("discoverall skipped: have not yet primed skiplist")
+      unless schema(vars->{'tenant'})
+      ->resultset('DeviceSkip')
+      ->search({backend => setting('workers')->{'BACKEND'}, device => '255.255.255.255',})->count();
 
-  return Status->done('Discoverall is able to run');
-});
+    return Status->done('Discoverall is able to run');
+  }
+);
 
 # 注册主阶段工作器
 # 批量调度设备发现任务
-register_worker({ phase => 'main' }, sub {
-  my ($job, $workerconf) = @_;
+register_worker(
+  {phase => 'main'},
+  sub {
+    my ($job, $workerconf) = @_;
 
-  # 获取需要发现的设备列表
-  my @walk = schema(vars->{'tenant'})->resultset('Virtual::WalkJobs')
-    ->search(undef,{ bind => [
-      'discover', 'discover',
-      setting('workers')->{'max_deferrals'},
-      setting('workers')->{'retry_after'},
-    ]})->get_column('ip')->all;
+    # 获取需要发现的设备列表
+    my @walk
+      = schema(vars->{'tenant'})
+      ->resultset('Virtual::WalkJobs')
+      ->search(undef,
+      {bind => ['discover', 'discover', setting('workers')->{'max_deferrals'}, setting('workers')->{'retry_after'},]})
+      ->get_column('ip')
+      ->all;
 
-  # 插入发现任务到作业队列
-  jq_insert([
-    map {{
-      device => $_,
-      action => 'discover',
-      username => $job->username,
-      userip => $job->userip,
-    }} (@walk)
-  ]);
+    # 插入发现任务到作业队列
+    jq_insert([
+      map { {device => $_, action => 'discover', username => $job->username, userip => $job->userip,} } (@walk)
+    ]);
 
-  return Status->done('Queued discover job for all devices');
-});
+    return Status->done('Queued discover job for all devices');
+  }
+);
 
 true;

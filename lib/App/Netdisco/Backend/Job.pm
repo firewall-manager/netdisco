@@ -12,41 +12,38 @@ use namespace::clean;
 
 # 定义作业的基本属性
 # 包括作业ID、时间戳、设备信息、动作、状态等
-foreach my $slot (qw/
-      job
-      entered
-      started
-      finished
-      device
-      port
-      action
-      only_namespace
-      subaction
-      status
-      username
-      userip
-      log
-      device_key
-      backend
-      job_priority
-      is_cancelled
-      is_offline
+foreach my $slot (
+  qw/
+  job
+  entered
+  started
+  finished
+  device
+  port
+  action
+  only_namespace
+  subaction
+  status
+  username
+  userip
+  log
+  device_key
+  backend
+  job_priority
+  is_cancelled
+  is_offline
 
-      _current_phase
-      _last_namespace
-      _last_priority
-    /) {
+  _current_phase
+  _last_namespace
+  _last_priority
+  /
+) {
 
-  has $slot => (
-    is => 'rw',
-  );
+  has $slot => (is => 'rw',);
 }
 
 # 状态列表，用于存储作业执行过程中的状态信息
-has '_statuslist' => (
-  is => 'rw',
-  default => sub { [] },
-);
+has '_statuslist' => (is => 'rw', default => sub { [] },);
 
 # 构建器方法
 # 初始化作业对象，处理动作名称空间和子动作
@@ -77,10 +74,7 @@ An attempt to make a meaningful written statement about the job.
 # 生成作业的有意义描述
 sub display_name {
   my $job = shift;
-  return join ' ',
-    $job->action,
-    ($job->device || ''),
-    ($job->port || '');
+  return join ' ', $job->action, ($job->device || ''), ($job->port || '');
 }
 
 =head2 cancel
@@ -109,16 +103,15 @@ and find the highest scoring status, skipping the check phase.
 # 查找到目前为止的最佳状态，从最后一个工作进程开始追踪
 # 找到最高分状态，跳过检查阶段
 sub best_status {
-  my $job = shift;
-  my $cur_level = 0;
+  my $job        = shift;
+  my $cur_level  = 0;
   my $cur_status = '';
 
-  foreach my $status (reverse @{ $job->_statuslist }) {
-    next if $status->phase
-      and $status->phase !~ m/^(?:early|main|store|late)$/;
+  foreach my $status (reverse @{$job->_statuslist}) {
+    next if $status->phase and $status->phase !~ m/^(?:early|main|store|late)$/;
 
     if ($status->level >= $cur_level) {
-      $cur_level = $status->level;
+      $cur_level  = $status->level;
       $cur_status = $status->status;
     }
   }
@@ -136,6 +129,7 @@ Find the best status and log it into the job's C<status> and C<log> slots.
 # 找到最佳状态并将其记录到作业的status和log槽中
 sub finalise_status {
   my $job = shift;
+
   # use DDP; p $job->_statuslist;
 
   # 回退状态
@@ -144,9 +138,8 @@ sub finalise_status {
 
   my $max_level = 0;
 
-  foreach my $status (reverse @{ $job->_statuslist }) {
-    next if $status->phase
-      and $status->phase !~ m/^(?:check|early|main|user|store|late)$/;
+  foreach my $status (reverse @{$job->_statuslist}) {
+    next if $status->phase and $status->phase !~ m/^(?:check|early|main|user|store|late)$/;
 
     # 检查阶段的done()不应该是动作的done()
     next if $status->phase eq 'check' and $status->is_ok;
@@ -154,11 +147,10 @@ sub finalise_status {
     # 对于done()我们想要最新的日志消息
     # 对于error()（和其他）我们想要最早的日志消息
 
-    if (($max_level != Status->done()->level and $status->level >= $max_level)
-        or ($status->level > $max_level)) {
+    if (($max_level != Status->done()->level and $status->level >= $max_level) or ($status->level > $max_level)) {
 
-      $job->status( $status->status );
-      $job->log( $status->log );
+      $job->status($status->status);
+      $job->log($status->log);
       $max_level = $status->level;
     }
   }
@@ -175,11 +167,10 @@ C<done>.
 # 如果在check阶段至少有一个工作进程标记状态为done则返回true
 sub check_passed {
   my $job = shift;
-  return true if 0 == scalar @{ $job->_statuslist };
+  return true if 0 == scalar @{$job->_statuslist};
 
-  foreach my $status (@{ $job->_statuslist }) {
-    return true if
-      (($status->phase eq 'check') and $status->is_ok);
+  foreach my $status (@{$job->_statuslist}) {
+    return true if (($status->phase eq 'check') and $status->is_ok);
   }
   return false;
 }
@@ -197,16 +188,17 @@ sub namespace_passed {
   my ($job, $workerconf) = @_;
 
   if ($job->_last_namespace) {
-    foreach my $status (@{ $job->_statuslist }) {
-      next unless ($status->phase eq $workerconf->{phase})
-              and ($workerconf->{namespace} eq $job->_last_namespace)
-              and ($workerconf->{priority} < $job->_last_priority);
+    foreach my $status (@{$job->_statuslist}) {
+      next
+        unless ($status->phase eq $workerconf->{phase})
+        and ($workerconf->{namespace} eq $job->_last_namespace)
+        and ($workerconf->{priority} < $job->_last_priority);
       return true if $status->is_ok;
     }
   }
 
-  $job->_last_namespace( $workerconf->{namespace} );
-  $job->_last_priority( $workerconf->{priority} );
+  $job->_last_namespace($workerconf->{namespace});
+  $job->_last_priority($workerconf->{priority});
   return false;
 }
 
@@ -221,11 +213,11 @@ Pass the name of the phase being entered.
 sub enter_phase {
   my ($job, $phase) = @_;
 
-  $job->_current_phase( $phase );
+  $job->_current_phase($phase);
   debug BRIGHT_CYAN, "//// ", uc($phase), ' \\\\\\\\ ', GREY10, 'phase', RESET;
 
-  $job->_last_namespace( undef );
-  $job->_last_priority( undef );
+  $job->_last_namespace(undef);
+  $job->_last_priority(undef);
 }
 
 =head2 add_status
@@ -241,10 +233,10 @@ status cache. Phase slot of the Status will be set to the current phase.
 sub add_status {
   my ($job, $status) = @_;
   return unless ref $status eq 'App::Netdisco::Worker::Status';
-  $status->phase( $job->_current_phase || '' );
-  push @{ $job->_statuslist }, $status;
+  $status->phase($job->_current_phase || '');
+  push @{$job->_statuslist}, $status;
   if ($status->log) {
-      debug GREEN, "\N{LEFTWARDS BLACK ARROW} ", BRIGHT_GREEN, '(', $status->status, ') ', GREEN, $status->log, RESET;
+    debug GREEN, "\N{LEFTWARDS BLACK ARROW} ", BRIGHT_GREEN, '(', $status->status, ') ', GREEN, $status->log, RESET;
   }
 }
 
