@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::ACLEntriesWithDNS;
 
+# ACL条目与DNS虚拟结果类
+# 提供带DNS解析的ACL条目虚拟视图
+
 use strict;
 use warnings;
 
@@ -10,6 +13,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('acl_entries_with_dns');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：ACL条目与DNS解析
+# 将ACL规则与设备DNS信息关联，提供完整的规则集
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
 SELECT id,
       array_agg(ARRAY[
@@ -39,6 +44,9 @@ SELECT id,
   GROUP BY acl.id
 ENDSQL
 
+# 定义虚拟视图的列
+# id: ACL条目ID
+# ruleset: 规则集数组，包含规则和对应的DNS名称
 __PACKAGE__->add_columns(
   "id",
   { data_type => "integer", is_nullable => 0 },

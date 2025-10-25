@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::TastyJobs;
 
+# 美味任务虚拟结果类
+# 提供优先级排序的任务队列虚拟视图
+
 use strict;
 use warnings;
 
@@ -9,6 +12,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('tasty_jobs');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：美味任务队列
+# 提供优先级排序的任务队列，支持设备跳过和延迟机制
 __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
   WITH my_jobs AS
     (SELECT admin.* FROM admin
@@ -46,6 +51,8 @@ __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
 ENDSQL
 );
 
+# 定义虚拟视图的列
+# 包含任务的所有信息和优先级
 __PACKAGE__->add_columns(
   "job",
   { data_type => "integer", is_nullable => 0, },
@@ -79,6 +86,7 @@ __PACKAGE__->add_columns(
   { data_type => "integer", is_nullable => 1 },
 );
 
+# 设置主键
 __PACKAGE__->set_primary_key("job");
 
 1;

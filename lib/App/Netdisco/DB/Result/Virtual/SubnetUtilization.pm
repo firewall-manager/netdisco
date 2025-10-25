@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::SubnetUtilization;
 
+# 子网利用率虚拟结果类
+# 提供子网利用率统计信息的虚拟视图
+
 use strict;
 use warnings;
 
@@ -10,6 +13,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('cidr_ips');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：子网利用率统计
+# 统计子网中活跃IP地址数量和利用率百分比
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
   SELECT net as subnet,
          power(2, (32 - masklen(net))) as subnet_size,
@@ -40,6 +45,8 @@ __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
     ORDER BY percent ASC
 ENDSQL
 
+# 定义虚拟视图的列
+# 包含子网信息、大小、活跃IP数量和利用率百分比
 __PACKAGE__->add_columns(
   "subnet",
   { data_type => "cidr", is_nullable => 0 },

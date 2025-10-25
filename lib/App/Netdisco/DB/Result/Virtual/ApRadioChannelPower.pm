@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::ApRadioChannelPower;
 
+# AP无线电频道功率虚拟结果类
+# 提供接入点无线电频道功率信息的虚拟视图
+
 use strict;
 use warnings;
 
@@ -9,6 +12,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('ap_radio_channel_power');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：AP无线电频道功率
+# 关联无线端口、设备端口和设备信息，计算功率的dBm值
 __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
 SELECT w.channel,
        w.power,
@@ -32,6 +37,8 @@ WHERE w.channel != '0'
 ENDSQL
 );
 
+# 定义虚拟视图的列
+# 包含无线频道、功率、设备信息等字段
 __PACKAGE__->add_columns(
   'channel' => {
     data_type => 'integer',

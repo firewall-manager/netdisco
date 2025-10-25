@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::PollerPerformance;
 
+# 轮询器性能虚拟结果类
+# 提供轮询器性能统计信息的虚拟视图
+
 use strict;
 use warnings;
 
@@ -9,6 +12,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('poller_performance');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：轮询器性能统计
+# 统计轮询器任务的性能指标，包括执行时间和设备数量
 __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
   SELECT action,
          to_char( entered, 'YYYY-MM-DD HH24:MI:SS' ) AS entered_stamp,
@@ -29,6 +34,8 @@ __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
 ENDSQL
 );
 
+# 定义虚拟视图的列
+# 包含轮询器任务的动作、时间戳、设备数量和执行时间
 __PACKAGE__->add_columns(
   "action",
   { data_type => "text", is_nullable => 1 },

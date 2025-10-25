@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::UndiscoveredNeighbors;
 
+# 未发现邻居虚拟结果类
+# 提供未发现的网络邻居设备信息虚拟视图
+
 use strict;
 use warnings;
 
@@ -10,6 +13,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('undiscovered_neighbors');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：未发现邻居
+# 查找可发现但尚未发现的网络邻居设备
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
   SELECT DISTINCT ON (p.remote_ip, p.port)
     d.ip, d.name, d.dns,
@@ -42,6 +47,8 @@ __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
     a.finished DESC
 ENDSQL
 
+# 定义虚拟视图的列
+# 包含设备信息、端口信息、远程设备信息和发现状态
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },

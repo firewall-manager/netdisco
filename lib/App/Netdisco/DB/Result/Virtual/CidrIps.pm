@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::CidrIps;
 
+# CIDR IP地址虚拟结果类
+# 提供CIDR网络范围内所有IP地址的虚拟视图
+
 use strict;
 use warnings;
 
@@ -10,6 +13,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('cidr_ips');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：CIDR IP地址生成
+# 根据CIDR前缀生成网络范围内的所有IP地址，模拟节点结构
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
 SELECT host(network (prefix) + sub.int)::inet AS ip,
        NULL::macaddr AS mac,
@@ -30,6 +35,8 @@ SELECT host(network (prefix) + sub.int)::inet AS ip,
   ) AS sub
 ENDSQL
 
+# 定义虚拟视图的列，模拟节点表结构
+# 所有字段都设为NULL或false，因为这是生成的虚拟IP地址
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },

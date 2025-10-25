@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::PortVLANMismatch;
 
+# 端口VLAN不匹配虚拟结果类
+# 提供端口VLAN配置不匹配的虚拟视图
+
 use strict;
 use warnings;
 
@@ -8,6 +11,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('port_vlan_mismatch');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：端口VLAN不匹配检测
+# 检测连接端口之间的VLAN配置不匹配，包括原生VLAN和标记VLAN
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
 
 SELECT  ips[1] AS left_ip,
@@ -48,7 +53,7 @@ FROM (
                alldpv.port_descr,
                jsonb_agg( CASE WHEN native THEN 'n:' || vlan::text ELSE vlan::text END ORDER BY vlan ASC )
                    FILTER (WHERE vlan IS NOT NULL) AS vlist,
-               -- create a key for each port allowing pairs of ports to be matched
+               -- 为每个端口创建键，允许端口对匹配
                CASE WHEN alldpv.ip <= alldpv.remote_ip THEN host(alldpv.ip)::text || '!' || alldpv.port::text
                     ELSE host(alldpv.remote_ip)::text || '!' || alldpv.remote_port::text END AS lowport
 
@@ -92,6 +97,8 @@ ORDER BY left_ip, left_port
 
 ENDSQL
 
+# 定义虚拟视图的列
+# 包含连接两端设备的IP、DNS、端口、VLAN信息和不匹配分析
 __PACKAGE__->add_columns(
   'left_ip'         => { data_type => 'text' },
   'left_dns'        => { data_type => 'text' },

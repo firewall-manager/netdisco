@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::NodesDiscovered;
 
+# 发现的节点虚拟结果类
+# 提供通过端口连接发现的节点信息虚拟视图
+
 use strict;
 use warnings;
 
@@ -9,6 +12,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('nodes_discovered');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：发现的节点
+# 查找通过端口连接发现但未在设备表中注册的远程节点
 __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
 SELECT d.ip,
        d.dns,
@@ -38,6 +43,8 @@ WHERE d.ip = p.ip
 ENDSQL
 );
 
+# 定义虚拟视图的列
+# 包含设备信息、端口信息和远程节点信息
 __PACKAGE__->add_columns(
   'ip' => {
     data_type => 'inet',

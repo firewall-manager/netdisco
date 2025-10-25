@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::WalkJobs;
 
+# 遍历任务虚拟结果类
+# 提供需要执行遍历任务的设备虚拟视图
+
 use strict;
 use warnings;
 
@@ -9,6 +12,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('walk_jobs');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：遍历任务
+# 查找需要执行遍历任务的设备，考虑设备跳过和延迟机制
 __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
     SELECT ip
     FROM device
@@ -34,11 +39,14 @@ __PACKAGE__->result_source_instance->view_definition(<<ENDSQL
 ENDSQL
 );
 
+# 定义虚拟视图的列
+# 包含需要执行遍历任务的设备IP地址
 __PACKAGE__->add_columns(
   "ip",
   { data_type => "inet", is_nullable => 0 },
 );
 
+# 设置主键
 __PACKAGE__->set_primary_key("ip");
 
 1;

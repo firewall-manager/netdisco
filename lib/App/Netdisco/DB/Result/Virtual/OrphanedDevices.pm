@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::OrphanedDevices;
 
+# 孤立设备虚拟结果类
+# 提供未被其他设备连接的孤立设备虚拟视图
+
 use strict;
 use warnings;
 
@@ -12,6 +15,8 @@ __PACKAGE__->subclass;
 __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 __PACKAGE__->table('orphaned_devices');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：孤立设备
+# 查找未被其他设备连接的设备，即没有远程连接的设备
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
 SELECT *
 FROM device

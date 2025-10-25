@@ -1,5 +1,8 @@
 package App::Netdisco::DB::Result::Virtual::DevicePoeStatus;
 
+# 设备PoE状态虚拟结果类
+# 提供设备PoE（以太网供电）状态统计信息的虚拟视图
+
 use strict;
 use warnings;
 
@@ -9,6 +12,8 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('device_poe_status');
 __PACKAGE__->result_source_instance->is_virtual(1);
+# 虚拟视图定义：设备PoE状态统计
+# 统计每个设备模块的PoE端口数量、功率状态和错误情况
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
 SELECT DISTINCT ON (dp.ip,dp.module)
        dp.ip,
@@ -39,6 +44,8 @@ AND dpp.module = dp.module
 JOIN device d ON dp.ip = d.ip
 ENDSQL
 
+# 定义虚拟视图的列
+# 包含设备信息、PoE端口统计和功率信息
 __PACKAGE__->add_columns(
   'ip' => {
     data_type => 'inet',
