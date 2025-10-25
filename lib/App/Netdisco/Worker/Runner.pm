@@ -1,5 +1,8 @@
 package App::Netdisco::Worker::Runner;
 
+# 工作器运行器
+# 提供工作器的执行和调度功能
+
 use Dancer qw/:moose :syntax/;
 use Dancer::Plugin::DBIC 'schema';
 
@@ -22,7 +25,7 @@ use namespace::clean;
 with 'App::Netdisco::Worker::Loader';
 has 'job' => ( is => 'rw' );
 
-# mixin code to run workers loaded via plugins
+# 运行通过插件加载的工作器的混合代码
 sub run {
   my ($self, $job) = @_;
 
@@ -35,7 +38,7 @@ sub run {
     unless scalar grep {$job->action eq $_} @{ setting('job_targets_prefix') };
   $self->load_workers();
 
-  # clean up and finalise job status when we exit
+  # 退出时清理并完成任务状态
   my $statusguard = guard {
     if (var('live_python')) {
       try { App::Netdisco::Transport::Python->runner->finish };
@@ -48,7 +51,7 @@ sub run {
   my @newuserconf = ();
   my @userconf = @{ dclone (setting('device_auth') || []) };
 
-  # reduce device_auth by only/no
+  # 通过only/no减少device_auth
   if (ref $job->device) {
     foreach my $stanza (@userconf) {
       my $no   = (exists $stanza->{no}   ? $stanza->{no}   : undef);
@@ -60,25 +63,26 @@ sub run {
       push @newuserconf, dclone $stanza;
     }
 
-    # per-device action but no device creds available
+    # 每个设备动作但没有设备凭据可用
     return $job->add_status( Status->defer('deferred job with no device creds') )
       if 0 == scalar @newuserconf && $self->transport_required;
   }
 
-  # back up and restore device_auth
+  # 备份和恢复device_auth
   my $configguard = guard { set(device_auth => \@userconf) };
   set(device_auth => \@newuserconf);
 
+  # 运行器子程序
   my $runner = sub {
     my ($self, $job) = @_;
-    # roll everything back if we're testing
+    # 如果我们在测试，回滚所有内容
     my $txn_guard = $ENV{ND2_DB_ROLLBACK}
       ? schema('netdisco')->storage->txn_scope_guard : undef;
 
-    # run check phase and if there are workers then one MUST be successful
+    # 运行检查阶段，如果有工作器，则必须有一个成功
     $self->run_workers('workers_check');
 
-    # run other phases
+    # 运行其他阶段
     if ($job->check_passed or $ENV{ND2_WORKER_ROLL_CALL}) {
       $self->run_workers("workers_${_}") for qw/early main user store late/;
     }
@@ -87,7 +91,7 @@ sub run {
   my $maxtime = ((defined setting($job->action .'_timeout'))
     ? setting($job->action .'_timeout') : setting('workers')->{'timeout'});
 
-  # add some slack to timeout if the device is new and needs auth walkthrough
+  # 如果设备是新的且需要认证遍历，为超时添加一些余量
   $maxtime += (40 * scalar @newuserconf) if ref $job->device and not $job->device->in_storage;
 
   if ($maxtime) {
@@ -103,6 +107,8 @@ sub run {
   }
 }
 
+# 运行工作器方法
+# 执行指定集合中的工作器
 sub run_workers {
   my $self = shift;
   my $job = $self->job or die error 'no job in worker job slot';
@@ -114,6 +120,7 @@ sub run_workers {
   (my $phase = $set) =~ s/^workers_//;
   $job->enter_phase($phase);
 
+  # 执行每个工作器
   foreach my $worker (@{ $self->$set }) {
     try { $job->add_status( $worker->($job) ) }
     catch {

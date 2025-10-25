@@ -1,5 +1,8 @@
 package App::Netdisco::Worker::Status;
 
+# 工作器状态类
+# 提供工作器执行状态的管理功能
+
 use strict;
 use warnings;
 
@@ -8,6 +11,8 @@ use Dancer qw/:moose :syntax !error !info/;
 use Moo;
 use namespace::clean;
 
+# 定义状态属性
+# 包含状态、日志和阶段信息
 has 'status' => (
   is => 'rw',
   default => undef,
@@ -58,6 +63,8 @@ Shorthand for new() with setting param, accepts log as arg.
 
 =cut
 
+# 创建新状态方法
+# 创建具有指定状态和日志的新状态对象
 sub _make_new {
   my ($self, $status, $log) = @_;
   die unless $status;
@@ -67,10 +74,11 @@ sub _make_new {
   return $new;
 }
 
-sub done  { shift->_make_new('done', @_)  } # <- jq_complete
-sub info  { shift->_make_new('info', @_)  } # <- jq_complete
-sub defer { shift->_make_new('defer', @_) } # <- jq_defer
-sub error { shift->_make_new('error', @_) } # <- jq_complete
+# 状态创建方法
+sub done  { shift->_make_new('done', @_)  } # 完成状态
+sub info  { shift->_make_new('info', @_)  } # 信息状态
+sub defer { shift->_make_new('defer', @_) } # 延迟状态
+sub error { shift->_make_new('error', @_) } # 错误状态
 
 =head2 is_ok
 
@@ -78,22 +86,16 @@ Returns true if status is C<done>.
 
 =cut
 
+# 检查是否成功方法
+# 如果状态为'done'则返回true
 sub is_ok { return $_[0]->status eq 'done' }
 
-=head2 not_ok
-
-Returns true if status is C<error>, C<defer>, or C<info>.
-
-=cut
-
+# 检查是否不成功方法
+# 如果状态是'error'、'defer'或'info'则返回true
 sub not_ok { return (not $_[0]->is_ok) }
 
-=head2 level
-
-A numeric constant for the status, to allow comparison.
-
-=cut
-
+# 状态级别方法
+# 返回状态的数字常量，用于比较
 sub level {
   my $self = shift;
   return (($self->status eq 'error') ? 4
