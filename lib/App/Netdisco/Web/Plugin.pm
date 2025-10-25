@@ -1,5 +1,8 @@
 package App::Netdisco::Web::Plugin;
 
+# Web插件系统模块
+# 提供Netdisco Web UI组件注册和管理功能
+
 use Dancer ':syntax';
 use Dancer::Plugin;
 use Dancer::Plugin::Swagger;
@@ -9,6 +12,7 @@ use Path::Class 'dir';
 use List::Util 'pairs';
 use Storable 'dclone';
 
+# 初始化插件系统设置
 set(
   '_additional_css'         => [],
   '_additional_javascript'  => [],
@@ -24,9 +28,10 @@ set(
   '_report_order' => [qw/Device Port IP Node VLAN Network Wireless/, 'My Reports'],
 );
 
-# this is what Dancer::Template::TemplateToolkit does by default
+# 这是Dancer::Template::TemplateToolkit的默认行为
 config->{engines}->{netdisco_template_toolkit}->{INCLUDE_PATH} ||= [ setting('views') ];
 
+# 注册模板路径
 register 'register_template_path' => sub {
   my ($self, $path) = plugin_args(@_);
 
@@ -38,6 +43,8 @@ register 'register_template_path' => sub {
        dir($path, 'views')->stringify;
 };
 
+# 注册包含文件函数
+# 用于注册CSS和JavaScript文件
 sub _register_include {
   my ($type, $plugin) = @_;
 
@@ -52,16 +59,19 @@ sub _register_include {
   push @{ setting("_additional_$type") }, $plugin;
 }
 
+# 注册CSS文件
 register 'register_css' => sub {
   my ($self, $plugin) = plugin_args(@_);
   _register_include('css', $plugin);
 };
 
+# 注册JavaScript文件
 register 'register_javascript' => sub {
   my ($self, $plugin) = plugin_args(@_);
   _register_include('javascript', $plugin);
 };
 
+# 注册设备端口列
 register 'register_device_port_column' => sub {
   my ($self, $config) = plugin_args(@_);
   $config->{default} ||= '';
@@ -72,6 +82,7 @@ register 'register_device_port_column' => sub {
       return error "bad config to register_device_port_column";
   }
 
+  # 检查是否已存在相同名称的列
   foreach my $item (@{ setting('_extra_device_port_cols') }) {
       if ($item->{name} eq $config->{name}) {
           $item = $config;
@@ -82,6 +93,7 @@ register 'register_device_port_column' => sub {
   push @{ setting('_extra_device_port_cols') }, $config;
 };
 
+# 注册设备详情
 register 'register_device_details' => sub {
   my ($self, $config) = plugin_args(@_);
 
@@ -90,6 +102,7 @@ register 'register_device_details' => sub {
       return error "bad config to register_device_details";
   }
 
+  # 检查是否已存在相同名称的详情
   foreach my $item (@{ setting('_extra_device_details') }) {
       if ($item->{name} eq $config->{name}) {
           $item = $config;
@@ -100,6 +113,7 @@ register 'register_device_details' => sub {
   push @{ setting('_extra_device_details') }, $config;
 };
 
+# 注册导航栏项目
 register 'register_navbar_item' => sub {
   my ($self, $config) = plugin_args(@_);
 
@@ -111,6 +125,7 @@ register 'register_navbar_item' => sub {
       return error "bad config to register_navbar_item";
   }
 
+  # 检查是否已存在相同标签的项目
   foreach my $item (@{ setting('_navbar_items') }) {
       if ($item->{tag} eq $config->{tag}) {
           $item = $config;
@@ -121,6 +136,7 @@ register 'register_navbar_item' => sub {
   push @{ setting('_navbar_items') }, $config;
 };
 
+# 注册管理任务
 register 'register_admin_task' => sub {
   my ($self, $config) = plugin_args(@_);
 
@@ -135,6 +151,8 @@ register 'register_admin_task' => sub {
   setting('_admin_tasks')->{ $config->{tag} } = $config;
 };
 
+# 注册标签页函数
+# 用于注册搜索和设备标签页
 sub _register_tab {
   my ($nav, $config) = @_;
   my $stash = setting("_${nav}_tabs");
@@ -146,6 +164,7 @@ sub _register_tab {
       return error "bad config to register_${nav}_item";
   }
 
+  # 检查是否已存在相同标签的标签页
   foreach my $item (@{ $stash }) {
       if ($item->{tag} eq $config->{tag}) {
           $item = $config;
@@ -156,10 +175,12 @@ sub _register_tab {
   push @{ $stash }, $config;
 }
 
+# 注册搜索标签页
 register 'register_search_tab' => sub {
   my ($self, $config) = plugin_args(@_);
   _register_tab('search', $config);
 
+  # 如果配置了API端点，则创建API路由
   if ($config->{api_endpoint}) {
       my $tag = $config->{tag};
       swagger_path {
@@ -175,12 +196,14 @@ register 'register_search_tab' => sub {
   }
 };
 
+# 注册设备标签页
 register 'register_device_tab' => sub {
   my ($self, $config) = plugin_args(@_);
   $config->{render_if} ||= sub { true };
   _register_tab('device', $config);
 };
 
+# 注册报告
 register 'register_report' => sub {
   my ($self, $config) = plugin_args(@_);
   my @categories = @{ setting('_report_order') };
@@ -194,18 +217,21 @@ register 'register_report' => sub {
       return error "bad config to register_report";
   }
 
+  # 添加报告到菜单
   if (0 == scalar grep {$_ eq $config->{tag}}
                        @{setting('_reports_menu')->{ $config->{category} }}) {
       push @{setting('_reports_menu')->{ $config->{category} }}, $config->{tag};
   }
 
+  # 处理报告配置
   foreach my $tag (@{setting('_reports_menu')->{ $config->{category} }}) {
       if ($config->{tag} eq $tag) {
           setting('_reports')->{$tag} = $config;
 
+          # 如果配置了API端点，则创建API路由
           if ($config->{api_endpoint}) {
               (my $category_path = lc $config->{category}) =~ s/ /-/g;
-              my $params_copy = dclone ($config->{api_parameters} || []); # swagger plugin nukes it?
+              my $params_copy = dclone ($config->{api_parameters} || []); # swagger插件会清除它？
 
               swagger_path {
                 tags => ['Reports'],
@@ -219,13 +245,13 @@ register 'register_report' => sub {
               },
 
               get "/api/v1/report/$category_path/$tag" => require_role api => sub {
-                # #1360 workaround for swagger missing that False is false
+                # #1360 解决swagger缺少False为false的问题
                 foreach my $spec (pairs @{ $params_copy }) {
                     my ($param, $conf) = @$spec;
                     next unless exists $conf->{type} and $conf->{type} eq 'boolean';
                     next unless exists request->{'_query_params'}->{$param}
                       and defined request->{'_query_params'}->{$param}
-                      and ref q{} eq ref request->{'_query_params'}->{$param}; # multiple params are arrayref
+                      and ref q{} eq ref request->{'_query_params'}->{$param}; # 多个参数是数组引用
 
                     if (request->{'_query_params'}->{$param} eq 'False') {
                         delete request->{'_query_params'}->{$param};
@@ -236,6 +262,7 @@ register 'register_report' => sub {
               };
           }
 
+          # 查找报告配置
           foreach my $rconfig (@{setting('reports')}) {
               if ($rconfig->{tag} eq $tag) {
                   setting('_reports')->{$tag}->{'rconfig'} = $rconfig;

@@ -1,5 +1,8 @@
 package App::Netdisco::Web::Device;
 
+# 设备Web模块
+# 提供设备信息显示和管理功能
+
 use Dancer ':syntax';
 use Dancer::Plugin::Ajax;
 use Dancer::Plugin::DBIC;
@@ -11,33 +14,35 @@ use App::Netdisco::Util::Device 'match_to_setting';
 use App::Netdisco::Util::Port 'sync_portctl_roles';
 use App::Netdisco::Util::Web 'request_is_device';
 
-# build view settings for port connected nodes and devices
+# 为端口连接的节点和设备构建视图设置
 set('connected_properties' => [
   sort { $a->{idx} <=> $b->{idx} }
   map  {{ name => $_, %{ setting('sidebar_defaults')->{'device_ports'}->{$_} } }}
   grep { $_ =~ m/^n_/ } keys %{ setting('sidebar_defaults')->{'device_ports'} }
 ]);
 
+# 设置端口显示属性
 set('port_display_properties' => [
   sort { $a->{idx} <=> $b->{idx} }
   map  {{ name => $_, %{ setting('sidebar_defaults')->{'device_ports'}->{$_} } }}
   grep { $_ =~ m/^p_/ } keys %{ setting('sidebar_defaults')->{'device_ports'} }
 ]);
 
-# load and cache device port control configuration
+# 加载和缓存设备端口控制配置
 hook 'before' => sub {
   return unless request_is_device;
   sync_portctl_roles();
 };
 
+# 模板前钩子
 hook 'before_template' => sub {
   my $tokens = shift;
 
   my $defaults = var('sidebar_defaults')->{'device_ports'}
     or return;
 
-  # override ports form defaults with cookie settings
-  # always do this so that embedded links to device ports page have user prefs
+  # 用cookie设置覆盖端口表单默认值
+  # 总是这样做，以便嵌入到设备端口页面的链接具有用户偏好
   if (param('reset')) {
     cookie('nd_ports-form' => '', expires => '-1 day');
   }
@@ -51,7 +56,7 @@ hook 'before_template' => sub {
     }
   }
 
-  # used in the device search sidebar template to set selected items
+  # 用于设备搜索侧边栏模板中设置选中项
   foreach my $opt (qw/hgroup lgroup/) {
       my $p = (ref [] eq ref param($opt) ? param($opt)
                                           : (param($opt) ? [param($opt)] : []));
@@ -61,7 +66,7 @@ hook 'before_template' => sub {
   return if param('reset')
     or not var('sidebar_key') or (var('sidebar_key') ne 'device_ports');
 
-  # update cookie from params we just recieved in form submit
+  # 从我们刚刚在表单提交中接收的参数更新cookie
   my $uri = URI->new();
   foreach my $key (keys %{ $defaults }) {
     $uri->query_param($key => param($key));
@@ -69,11 +74,12 @@ hook 'before_template' => sub {
   cookie('nd_ports-form' => $uri->query(), expires => '365 days');
 };
 
+# 设备页面路由
 get '/device' => require_login sub {
     my $q = param('q');
     my $devices = schema(vars->{'tenant'})->resultset('Device');
 
-    # we are passed either dns or ip
+    # 我们传递的是dns或ip
     my $dev = $devices->search({
         -or => [
             \[ 'host(me.ip) = ?' => [ bind_value => $q ] ],
@@ -85,8 +91,8 @@ get '/device' => require_login sub {
         return redirect uri_for('/', {nosuchdevice => 1, device => $q})->path_query;
     }
 
-    # if passed dns, need to check for duplicates
-    # and use only ip for q param, if there are duplicates.
+    # 如果传递了dns，需要检查重复项
+    # 如果有重复项，只使用ip作为q参数
     my $first = $dev->first;
     my $others = ($devices->search({dns => $first->dns})->count() - 1);
 

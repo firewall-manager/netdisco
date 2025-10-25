@@ -1,59 +1,62 @@
 package App::Netdisco::Web::AuthN;
 
+# 认证Web模块
+# 提供用户认证和会话管理功能
+
 use Dancer ':syntax';
 use Dancer::Plugin::DBIC;
 use Dancer::Plugin::Auth::Extensible;
 use Dancer::Plugin::Swagger;
 
-use App::Netdisco; # a safe noop but needed for standalone testing
+use App::Netdisco; # 安全的无操作，但独立测试需要
 use App::Netdisco::Util::Web 'request_is_api';
 use MIME::Base64;
 use URI::Based;
 
-# ensure that regardless of where the user is redirected, we have a link
-# back to the page they requested.
+# 确保无论用户被重定向到哪里，我们都有一个链接
+# 回到他们请求的页面
 hook 'before' => sub {
     params->{return_url} ||= ((request->path ne uri_for('/')->path)
       ? request->uri : uri_for(setting('web_home'))->path);
 };
 
-# try to find a valid username according to headers
-# or configuration settings
+# 尝试根据头部或配置设置找到有效的用户名
 sub _get_delegated_authn_user {
   my $username = undef;
 
+  # 检查X-REMOTE_USER头部
   if (setting('trust_x_remote_user')
     and scalar request->header('X-REMOTE_USER')
     and length scalar request->header('X-REMOTE_USER')) {
 
       ($username = scalar request->header('X-REMOTE_USER')) =~ s/@[^@]*$//;
   }
+  # 检查REMOTE_USER环境变量
   elsif (setting('trust_remote_user')
     and defined $ENV{REMOTE_USER}
     and length  $ENV{REMOTE_USER}) {
 
       ($username = $ENV{REMOTE_USER}) =~ s/@[^@]*$//;
   }
-  # this works for API calls, too
+  # 这也适用于API调用
   elsif (setting('no_auth')) {
       $username = 'guest';
   }
 
   return unless $username;
 
-  # from the internals of Dancer::Plugin::Auth::Extensible
+  # 来自Dancer::Plugin::Auth::Extensible的内部
   my $provider = Dancer::Plugin::Auth::Extensible::auth_provider('users');
 
-  # may synthesize a user if validate_remote_user=false
+  # 如果validate_remote_user=false，可能会合成用户
   return $provider->get_user_details($username);
 }
 
-# Dancer will create a session if it sees its own cookie. For the API and also
-# various auto login options we need to bootstrap the session instead. If no
-# auth data passed, then the hook simply returns, no session is set, and the
-# user is redirected to login page.
+# Dancer在看到自己的cookie时会创建会话。对于API和各种自动登录选项，
+# 我们需要引导会话。如果没有传递认证数据，钩子简单返回，不设置会话，
+# 用户被重定向到登录页面
 hook 'before' => sub {
-    # return if request is for endpoints not requiring a session
+    # 如果请求是不需要会话的端点则返回
     return if (
       request->path eq uri_for('/login')->path
       or request->path eq uri_for('/logout')->path
@@ -61,26 +64,26 @@ hook 'before' => sub {
       or index(request->path, uri_for('/swagger-ui')->path) == 0
     );
 
-    # Dancer will issue a cookie to the client which could be returned and
-    # cause API calls to succeed without passing token. Kill the session.
+    # Dancer会向客户端发出cookie，这可能会被返回并
+    # 导致API调用在没有传递令牌的情况下成功。销毁会话
     session->destroy if request_is_api;
 
-    # ...otherwise, we can short circuit if Dancer reads its cookie OK
+    # ...否则，如果Dancer读取其cookie正常，我们可以短路
     return if session('logged_in_user');
 
     my $delegated = _get_delegated_authn_user();
 
-    # this ordering allows override of delegated authN if given creds
+    # 这个顺序允许在给定凭据时覆盖委托认证
 
-    # protect against delegated authN config but no valid user
+    # 防止委托认证配置但没有有效用户
     if ((not $delegated) and
       (setting('trust_x_remote_user') or setting('trust_remote_user'))) {
         session->destroy;
         request->path_info('/');
     }
-    # API calls must conform strictly to path and header requirements
+    # API调用必须严格符合路径和头部要求
     elsif (request_is_api and request->header('Authorization')) {
-        # from the internals of Dancer::Plugin::Auth::Extensible
+        # 来自Dancer::Plugin::Auth::Extensible的内部
         my $provider = Dancer::Plugin::Auth::Extensible::auth_provider('users');
 
         my $token = request->header('Authorization');
@@ -95,12 +98,12 @@ hook 'before' => sub {
         session(logged_in_user_realm => 'users');
     }
     else {
-        # user has no AuthN - force to handler for '/'
+        # 用户没有认证 - 强制到'/'的处理器
         request->path_info('/');
     }
 };
 
-# override default login_handler so we can log access in the database
+# 覆盖默认的login_handler，以便我们可以在数据库中记录访问
 swagger_path {
   description => 'Obtain an API Key',
   tags => ['General'],
@@ -113,10 +116,10 @@ swagger_path {
 post '/login' => sub {
     my $api = ((request->accept and request->accept =~ m/(?:json|javascript)/) ? true : false);
 
-    # from the internals of Dancer::Plugin::Auth::Extensible
+    # 来自Dancer::Plugin::Auth::Extensible的内部
     my $provider = Dancer::Plugin::Auth::Extensible::auth_provider('users');
 
-    # get authN data from BasicAuth header used by API, put into params
+    # 从API使用的BasicAuth头部获取认证数据，放入params
     my $authheader = request->header('Authorization');
     if (defined $authheader and $authheader =~ /^Basic (.*)$/i) {
         my ($u, $p) = split(m/:/, (MIME::Base64::decode($1) || ":"));
@@ -124,18 +127,18 @@ post '/login' => sub {
         params->{password} = $p;
     }
 
-    # validate authN
+    # 验证认证
     my ($success, $realm) = authenticate_user(param('username'),param('password'));
 
-    # or try to get user from somewhere else
+    # 或尝试从其他地方获取用户
     my $delegated = _get_delegated_authn_user();
 
     if (($success and not
-          # protect against delegated authN config but no valid user (then must ignore params)
+          # 防止委托认证配置但没有有效用户（然后必须忽略params）
           (not $delegated and (setting('trust_x_remote_user') or setting('trust_remote_user'))))
         or $delegated) {
 
-        # this ordering allows override of delegated user if given creds
+        # 这个顺序允许在给定凭据时覆盖委托用户
         my $user = ($success ? $provider->get_user_details(param('username'))
                              : $delegated);
 
@@ -143,6 +146,7 @@ post '/login' => sub {
         session logged_in_fullname => ($user->fullname || '');
         session logged_in_user_realm => ($realm || 'users');
 
+        # 记录用户日志
         schema('netdisco')->resultset('UserLog')->create({
           username => session('logged_in_user'),
           userip => request->remote_address,
@@ -154,7 +158,7 @@ post '/login' => sub {
         if ($api) {
             header('Content-Type' => 'application/json');
 
-            # if there's a current valid token then reissue it and reset timer
+            # 如果有当前有效令牌，则重新发出并重置计时器
             $user->update({
               token_from => time,
               ($provider->validate_api_token($user->token)
@@ -166,9 +170,10 @@ post '/login' => sub {
         redirect ((scalar URI::Based->new(param('return_url'))->path_query) || '/');
     }
     else {
-        # invalidate session cookie
+        # 使会话cookie无效
         session->destroy;
 
+        # 记录登录失败日志
         schema('netdisco')->resultset('UserLog')->create({
           username => param('username'),
           userip => request->remote_address,
@@ -189,13 +194,13 @@ post '/login' => sub {
     }
 };
 
-# ugh, *puke*, but D::P::Swagger has no way to set this with swagger_path
-# must be after the path is declared, above.
+# 呃，*呕吐*，但D::P::Swagger无法通过swagger_path设置这个
+# 必须在上面声明路径之后
 Dancer::Plugin::Swagger->instance->doc
   ->{paths}->{ (setting('url_base') ? setting('url_base')->with('/login')->path : '/login') }
   ->{post}->{security}->[0]->{BasicAuth} = [];
 
-# we override the default login_handler, so logout has to be handled as well
+# 我们覆盖了默认的login_handler，所以logout也必须处理
 swagger_path {
   description => 'Destroy user API Key and session cookie',
   tags => ['General'],
@@ -206,15 +211,16 @@ swagger_path {
 get '/logout' => sub {
     my $api = ((request->accept and request->accept =~ m/(?:json|javascript)/) ? true : false);
 
-    # clear out API token
+    # 清除API令牌
     my $user = schema('netdisco')->resultset('User')
       ->find({ username => session('logged_in_user')});
     $user->update({token => undef, token_from => undef})->discard_changes()
       if $user and $user->in_storage;
 
-    # invalidate session cookie
+    # 使会话cookie无效
     session->destroy;
 
+    # 记录登出日志
     schema('netdisco')->resultset('UserLog')->create({
       username => session('logged_in_user'),
       userip => request->remote_address,
@@ -230,7 +236,7 @@ get '/logout' => sub {
     redirect uri_for(setting('web_home'))->path;
 };
 
-# user redirected here when require_role does not succeed
+# 当require_role不成功时用户被重定向到这里
 any qr{^/(?:login(?:/denied)?)?} => sub {
     my $api = ((request->accept and request->accept =~ m/(?:json|javascript)/) ? true : false);
 

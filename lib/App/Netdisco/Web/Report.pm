@@ -1,15 +1,21 @@
 package App::Netdisco::Web::Report;
 
+# 报告Web模块
+# 提供报告页面功能
+
 use Dancer ':syntax';
 use Dancer::Plugin::DBIC;
 use Dancer::Plugin::Auth::Extensible;
 
+# 报告页面路由
+# 处理报告页面请求
 get '/report/*' => require_login sub {
     my ($tag) = splat;
 
-    # used in the report search sidebar to populate select inputs
+    # 用于报告搜索侧边栏填充选择输入
     my ( $domain_list, $class_list, $ssid_list, $type_list, $vendor_list );
 
+    # 根据报告类型获取相应的数据列表
     if ( $tag eq 'netbios' ) {
         $domain_list = [ schema(vars->{'tenant'})->resultset('NodeNbt')
                 ->get_distinct_col('domain') ];
@@ -39,7 +45,7 @@ get '/report/*' => require_login sub {
         ];
     }
 
-    # trick the ajax into working as if this were a tabbed page
+    # 让AJAX像标签页一样工作
     params->{tab} = $tag;
 
     var( nav => 'reports' );
