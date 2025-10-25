@@ -1,5 +1,8 @@
 package App::Netdisco::AnyEvent::Nbtstat;
 
+# 异步NetBIOS节点状态请求器
+# 使用AnyEvent框架进行异步NetBIOS查询
+
 use strict;
 use warnings;
 
@@ -11,16 +14,18 @@ use AnyEvent::Loop;
 use AnyEvent (); BEGIN { AnyEvent::common_sense }
 use AnyEvent::Util ();
 
+# 构造函数
+# 创建异步NetBIOS查询器实例
 sub new {
     my ( $class, %args ) = @_;
 
     my $interval = $args{interval};
-    # This default should generate ~ 50 requests per second
+    # 此默认值应该每秒生成约50个请求
     $interval = 0.2 unless defined $interval;
 
     my $timeout = $args{timeout};
 
-    # Timeout should be 250ms according to RFC1002, but we're going to double
+    # 根据RFC1002，超时应该是250ms，但我们要加倍
     $timeout = 0.5 unless defined $timeout;
 
     my $self = bless { interval => $interval, timeout => $timeout, %args },
@@ -39,16 +44,22 @@ sub new {
         }
     };
 
-    # Nbtstat tasks
+    # NetBIOS查询任务
     $self->{_tasks} = {};
 
     return $self;
 }
 
+# 间隔时间访问器
+# 获取或设置请求间隔时间
 sub interval { @_ > 1 ? $_[0]->{interval} = $_[1] : $_[0]->{interval} }
 
+# 超时时间访问器
+# 获取或设置请求超时时间
 sub timeout { @_ > 1 ? $_[0]->{timeout} = $_[1] : $_[0]->{timeout} }
 
+# NetBIOS节点状态查询
+# 对指定主机执行NetBIOS节点状态请求
 sub nbtstat {
     my ( $self, $host, $cb ) = @_;
 
@@ -66,8 +77,8 @@ sub nbtstat {
 
     my $delay = $self->interval * scalar keys %{ $self->{_tasks} || {} };
 
-    # There's probably a better way to throttle the sends
-    # but this will work for now since we currently don't support retries
+    # 可能有一种更好的节流发送方式
+    # 但这现在可以工作，因为我们目前不支持重试
     my $w; $w = AE::timer $delay, 0, sub {
         undef $w;
         $self->_send_request($request);
@@ -76,13 +87,15 @@ sub nbtstat {
     return $self;
 }
 
+# 读取响应处理
+# 处理从套接字接收到的NetBIOS响应
 sub _on_read {
     my ( $self, $resp, $peer ) = @_;
 
     ($resp) = $resp =~ /^(.*)$/s
         if AnyEvent::TAINT && $self->{untaint};
 
-    # Find our task
+    # 查找我们的任务
     my $request = $self->{_tasks}{$peer};
 
     return unless $request;
@@ -92,6 +105,8 @@ sub _on_read {
     return;
 }
 
+# 存储结果
+# 解析NetBIOS响应并存储结果
 sub _store_result {
     my ( $self, $request, $status, $resp ) = @_;
 
@@ -125,13 +140,13 @@ sub _store_result {
         $results = { 'status' => $status };
     }
 
-    # Clear request specific data
+    # 清除请求特定数据
     delete $request->{timer};
 
-    # Cleanup
+    # 清理
     delete $self->{_tasks}{ $request->{destination} };
 
-    # Done
+    # 完成
     $request->{cb}->($results);
 
     undef $request;
@@ -139,12 +154,14 @@ sub _store_result {
     return;
 }
 
+# 发送请求
+# 构造并发送NetBIOS节点状态查询请求
 sub _send_request {
     my ( $self, $request ) = @_;
 
     my $msg = "";
-    # We use process id as identifier field, since don't have a need to
-    # unique responses beyond host / port queried 
+    # 我们使用进程ID作为标识符字段，因为不需要
+    # 在查询的主机/端口之外唯一响应
     $msg .= pack( "n*", $$, 0, 1, 0, 0, 0 );
     $msg .= _encode_name( "*", "\x00", 0 );
     $msg .= pack( "n*", 0x21, 0x0001 );
@@ -163,6 +180,8 @@ sub _send_request {
     return;
 }
 
+# 编码名称
+# 将NetBIOS名称编码为NetBIOS格式
 sub _encode_name {
     my $name   = uc(shift);
     my $pad    = shift || "\x20";
@@ -177,17 +196,19 @@ sub _encode_name {
         $encoded_name .= chr( ord('A') + ( $c & 0xF ) );
     }
 
-    # Note that the _encode_name function doesn't add any scope,
-    # nor does it calculate the length (32), it just prefixes it
+    # 注意_encode_name函数不添加任何作用域，
+    # 也不计算长度（32），它只是添加前缀
     return "\x20" . $encoded_name . "\x00";
 }
 
+# 解码资源记录
+# 解析NetBIOS资源记录数据
 sub _decode_rr {
     my $rr_data = shift;
 
     my @nodetypes = qw/B-node P-node M-node H-node/;
     my ( $name, $suffix, $flags ) = unpack( "a15Cn", $rr_data );
-    $name =~ tr/\x00-\x19/\./;    # replace ctrl chars with "."
+    $name =~ tr/\x00-\x19/\./;    # 将控制字符替换为"."
     $name =~ s/\s+//g;
 
     my $rr = {};
