@@ -1,5 +1,8 @@
 package App::Netdisco::Worker::Plugin::DiscoverAll;
 
+# 全量发现工作器插件
+# 提供批量设备发现任务调度功能
+
 use Dancer ':syntax';
 use App::Netdisco::Worker::Plugin;
 use aliased 'App::Netdisco::Worker::Status';
@@ -7,7 +10,10 @@ use aliased 'App::Netdisco::Worker::Status';
 use App::Netdisco::JobQueue 'jq_insert';
 use Dancer::Plugin::DBIC 'schema';
 
+# 注册检查阶段工作器
+# 验证全量发现操作的准备状态
 register_worker({ phase => 'check' }, sub {
+  # 检查是否已初始化跳过列表
   return Status->defer("discoverall skipped: have not yet primed skiplist")
     unless schema(vars->{'tenant'})->resultset('DeviceSkip')
       ->search({
@@ -18,9 +24,12 @@ register_worker({ phase => 'check' }, sub {
   return Status->done('Discoverall is able to run');
 });
 
+# 注册主阶段工作器
+# 批量调度设备发现任务
 register_worker({ phase => 'main' }, sub {
   my ($job, $workerconf) = @_;
 
+  # 获取需要发现的设备列表
   my @walk = schema(vars->{'tenant'})->resultset('Virtual::WalkJobs')
     ->search(undef,{ bind => [
       'discover', 'discover',
@@ -28,6 +37,7 @@ register_worker({ phase => 'main' }, sub {
       setting('workers')->{'retry_after'},
     ]})->get_column('ip')->all;
 
+  # 插入发现任务到作业队列
   jq_insert([
     map {{
       device => $_,

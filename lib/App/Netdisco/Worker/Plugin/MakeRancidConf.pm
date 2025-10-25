@@ -1,5 +1,8 @@
 package App::Netdisco::Worker::Plugin::MakeRancidConf;
 
+# RANCID配置生成工作器插件
+# 提供RANCID配置文件生成功能
+
 use strict;
 use warnings;
 
@@ -14,15 +17,19 @@ use List::Util qw/pairkeys pairfirst/;
 use File::Slurper qw/read_lines write_text/;
 use App::Netdisco::Util::Permission 'acl_matches';
 
+# 注册主阶段工作器
+# 生成RANCID配置文件
 register_worker({ phase => 'main' }, sub {
   my ($job, $workerconf) = @_;
   my $config = setting('rancid') || {};
 
+  # 设置配置参数
   my $domain_suffix = setting('domain_suffix') || '';
   my $delimiter = $config->{delimiter} || ';';
   my $down_age  = $config->{down_age} || '1 day';
   my $default_group = $config->{default_group} || 'default';
 
+  # 设置RANCID配置路径
   my $rancidconf = $config->{rancid_conf} || '/etc/rancid';
   my $rancidcvsroot = $config->{rancid_cvsroot}
     || dir($ENV{NETDISCO_HOME}, 'rancid')->stringify;
@@ -30,6 +37,7 @@ register_worker({ phase => 'main' }, sub {
   return Status->error("cannot create or access rancid cvsroot: $rancidcvsroot")
     if ! -d $rancidcvsroot;
 
+  # 读取允许的设备类型
   my $allowed_types = {};
   foreach my $type (qw/base conf/) {
     my $type_file = file($rancidconf, "rancid.types.$type")->stringify;
@@ -42,49 +50,59 @@ register_worker({ phase => 'main' }, sub {
     }
   }
   
+  # 检查是否有配置的设备类型
   return Status->error("You didn't have any device types configured in your rancid installation.")
     if ! scalar keys %$allowed_types;
 
+  # 获取设备列表
   my $devices = schema('netdisco')->resultset('Device')->search(undef, {
     '+columns' => { old =>
       \['age(LOCALTIMESTAMP, last_discover) > ?::interval', $down_age] },
   });
 
+  # 设置默认配置
   $config->{groups}    ||= { $default_group => 'group:__ANY__' };
   $config->{vendormap} ||= {};
   $config->{excluded}    ||= [];
   $config->{by_ip}       ||= [];
   $config->{by_hostname} ||= [];
 
-  # fix #686 excluded setting should be (ACL) list not dict
+  # 修复#686 排除设置应该是(ACL)列表而不是字典
   if (ref {} eq ref $config->{excluded}) {
     $config->{excluded} = [ values %{ $config->{excluded} } ];
   }
 
+  # 初始化路由器数据库和唯一性检查
   my $routerdb = {};
   my $routerunicity = {};
   while (my $d = $devices->next) {
 
+    # 检查设备是否被排除
     if (acl_matches($d, $config->{excluded})) {
       debug " skipping $d: device excluded of export";
       next 
     }
 
+    # 确定设备名称
     my $name = acl_matches($d, $config->{by_ip}) ? $d->ip : ($d->dns || $d->name);
     $name =~ s/$domain_suffix$// if acl_matches($d, $config->{by_hostname});
 
+    # 确定设备组
     my ($group) =
       (pairkeys pairfirst { acl_matches($d, $b) } %{ $config->{groups} }) || $default_group;
 
+    # 检查设备唯一性
     if (exists($routerunicity->{$group}->{$name})) {
       debug " skipping $d: device excluded because already present in export list";
       next;
     }
 
+    # 确定设备供应商
     my ($vendor) =
       (pairkeys pairfirst { acl_matches($d, $b) } %{ $config->{vendormap} })
         || $d->vendor;
 
+    # 验证设备名称和供应商
     if (not ($name and $vendor)) {
       debug " skipping $d: the name or vendor is not defined";
       next
@@ -96,12 +114,14 @@ register_worker({ phase => 'main' }, sub {
       next;
     }
 
+    # 添加设备到路由器数据库
     push @{$routerdb->{$group}},
       (sprintf "%s${delimiter}%s${delimiter}%s", $name, $vendor,
         ($d->get_column('old') ? 'down' : 'up'));
     $routerunicity->{$group}->{$name} = 1;
   }
 
+  # 为每个组生成路由器数据库文件
   foreach my $group (keys %$routerdb) {
     mkdir dir($rancidcvsroot, $group)->stringify;
     my $content = "#\n# Router list file for rancid group $group.\n";

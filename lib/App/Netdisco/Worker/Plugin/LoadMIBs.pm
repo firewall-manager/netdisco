@@ -1,5 +1,8 @@
 package App::Netdisco::Worker::Plugin::LoadMIBs;
 
+# MIB加载工作器插件
+# 提供SNMP MIB对象和过滤器加载功能
+
 use Dancer ':syntax';
 use App::Netdisco::Worker::Plugin;
 use aliased 'App::Netdisco::Worker::Status';
@@ -15,6 +18,8 @@ use App::Netdisco::Util::Device 'get_device';
 use App::Netdisco::Util::Snapshot 'make_snmpwalk_browsable';
 # use DDP;
 
+# 注册主阶段工作器
+# 加载SNMP MIB对象和过滤器
 register_worker({ phase => 'main' }, sub {
   my ($job, $workerconf) = @_;
 
@@ -22,37 +27,49 @@ register_worker({ phase => 'main' }, sub {
   debug sprintf 'loadmibs - loading netdisco-mibs object cache%s',
     ($vendor ? (sprintf ' for vendor "%s"', $vendor) : '');
 
+  # 设置MIB目录路径
   my $home = (setting('mibhome') || catdir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'netdisco-mibs'));
   my $reports = catdir( $home, 'EXTRAS', 'reports' );
+  
+  # 获取可用的OID映射文件
   my @maps = map  { (splitdir($_))[-1] }
              grep { ! m/^(?:EXTRAS)$/ }
              grep { ! m/\./ }
              grep { -f }
              glob (catfile( $reports, '*_oids' ));
 
+  # 读取报告文件
   my @report = ();
   if ($vendor) {
+      # 读取特定供应商的OID文件
       push @report, read_lines( catfile( $reports, "${vendor}_oids" ), 'latin-1' );
   }
   else {
+      # 读取所有标准OID文件
       push @report, read_lines( catfile( $reports, $_ ), 'latin-1' )
         for (qw(rfc_oids net-snmp_oids cisco_oids), @maps);
   }
   
+  # 初始化浏览器对象和统计变量
   my @browser = ();
   my %children = ();
   my %seenoid = ();
 
+  # 解析报告行并构建浏览器对象
   foreach my $line (@report) {
     my ($oid, $qual_leaf, $type, $access, $index, $status, $enum, $descr) = split m/,/, $line, 8;
     next unless defined $oid and defined $qual_leaf;
     next if ++$seenoid{$oid} > 1;
 
+    # 解析MIB和叶子名称
     my ($mib, $leaf) = split m/::/, $qual_leaf;
     my @oid_parts = grep {length} (split m/\./, $oid);
+    
+    # 计算子节点数量
     ++$children{ join '.', '', @oid_parts[0 .. (@oid_parts - 2)] }
       if scalar @oid_parts > 1;
 
+    # 构建浏览器对象
     push @browser, {
       oid    => $oid,
       oid_parts => [ @oid_parts ],
@@ -67,6 +84,7 @@ register_worker({ phase => 'main' }, sub {
     };
   }
 
+  # 设置每个对象的子节点数量
   foreach my $row (@browser) {
     $row->{num_children} = $children{ $row->{oid} } || 0;
   }
@@ -74,6 +92,7 @@ register_worker({ phase => 'main' }, sub {
   debug sprintf "loadmibs - loaded %d objects from netdisco-mibs",
     scalar @browser;
 
+  # 更新SNMP对象数据库
   schema('netdisco')->txn_do(sub {
     my $gone = schema('netdisco')->resultset('SNMPObject')->delete;
     debug sprintf 'loadmibs - removed %d oids', $gone;
@@ -81,11 +100,13 @@ register_worker({ phase => 'main' }, sub {
     debug sprintf 'loadmibs - added %d new oids', scalar @browser;
   });
 
+  # 处理SNMP过滤器数据
   my @filters = <DATA>;
   $_ = [split m/\t/, $_] for @filters;
   $_ = {leaf => $_->[0], subname => $_->[1]} for @filters;
   chomp( $_->{subname} ) for @filters;
 
+  # 更新SNMP过滤器数据库
   schema('netdisco')->txn_do(sub {
     my $gone = schema('netdisco')->resultset('SNMPFilter')->delete;
     debug sprintf 'loadmibs - removed %d filters', $gone;
@@ -93,7 +114,7 @@ register_worker({ phase => 'main' }, sub {
     debug sprintf 'loadmibs - added %d new filters', scalar @filters;
   });
 
-  # promote snapshots prior to loadmibs to be browsable
+  # 将loadmibs之前的快照提升为可浏览
   schema('netdisco')->txn_do(sub {
     my @devices = schema('netdisco')
           ->resultset('DeviceBrowser')
@@ -108,7 +129,7 @@ register_worker({ phase => 'main' }, sub {
     }
   });
 
-  # legacy snapshot upgrade
+  # 传统快照升级
   schema('netdisco')->txn_do(sub {
     my $legacy_rs = schema('netdisco')
           ->resultset('DeviceBrowser')
@@ -118,7 +139,7 @@ register_worker({ phase => 'main' }, sub {
         my @rows = $legacy_rs->hri->all;
         my $gone = $legacy_rs->delete;
         
-        # the legacy looks like encode_base64( nfreeze( [$data] ) )
+        # 传统格式看起来像encode_base64( nfreeze( [$data] ) )
         foreach my $row (@rows) {
             my $value = (@{ thaw( decode_base64( from_json($row->{value}) ) ) })[0];
             $value = (ref {} eq ref $value)
