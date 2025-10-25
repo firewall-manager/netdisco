@@ -11,9 +11,11 @@ use warnings;
 use Try::Tiny;
 require Dancer::Logger;
 
-__PACKAGE__->load_components(qw/
-  +App::Netdisco::DB::ExplicitLocking
-/);
+__PACKAGE__->load_components(
+  qw/
+    +App::Netdisco::DB::ExplicitLocking
+    /
+);
 
 =head1 ADDITIONAL METHODS
 
@@ -35,15 +37,18 @@ will add the following additional synthesized columns to the result set:
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+columns' => { lastchange_stamp =>
-          \("to_char(device.last_discover - (device.uptime - me.lastchange) / 100 * interval '1 second', "
-            ."'YYYY-MM-DD HH24:MI:SS')") },
-        join => 'device',
-      });
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+columns' => {
+        lastchange_stamp => \(
+              "to_char(device.last_discover - (device.uptime - me.lastchange) / 100 * interval '1 second', "
+            . "'YYYY-MM-DD HH24:MI:SS')"
+        )
+      },
+      join => 'device',
+    }
+  );
 }
 
 =head2 with_is_free
@@ -68,22 +73,29 @@ C<weeks>, C<months> or C<years>.
 sub with_is_free {
   my ($rs, $cond, $attrs) = @_;
 
-  my $interval = (delete $cond->{age_num}) .' '. (delete $cond->{age_unit});
+  my $interval = (delete $cond->{age_num}) . ' ' . (delete $cond->{age_unit});
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+columns' => { is_free =>
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+columns' => {
+        is_free =>
+
           # 注意：此查询在`git grep 'THREE PLACES'`中
-          \["me.up_admin = 'up' AND me.up != 'up' AND "
-              ."(me.type IS NULL OR me.type !~* '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)\$') AND "
-              ."((age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime/100))::timestamp) < ?::interval "
-              ."AND (last_node.time_last IS NULL OR age(LOCALTIMESTAMP, last_node.time_last) > ?::interval)) "
-              ."OR age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime - me.lastchange)/100)::timestamp) > ?::interval)",
-            [{} => $interval],[ {} => $interval],[ {} => $interval]] },
-        join => [qw/device last_node/],
-      });
+          \[
+          "me.up_admin = 'up' AND me.up != 'up' AND "
+            . "(me.type IS NULL OR me.type !~* '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)\$') AND "
+            . "((age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime/100))::timestamp) < ?::interval "
+            . "AND (last_node.time_last IS NULL OR age(LOCALTIMESTAMP, last_node.time_last) > ?::interval)) "
+            . "OR age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime - me.lastchange)/100)::timestamp) > ?::interval)",
+          [{} => $interval],
+          [{} => $interval],
+          [{} => $interval]
+          ]
+      },
+      join => [qw/device last_node/],
+    }
+  );
 }
 
 =head2 only_free_ports
@@ -102,33 +114,34 @@ C<weeks>, C<months> or C<years>.
 sub only_free_ports {
   my ($rs, $cond, $attrs) = @_;
 
-  my $interval = (delete $cond->{age_num}) .' '. (delete $cond->{age_unit});
+  my $interval = (delete $cond->{age_num}) . ' ' . (delete $cond->{age_unit});
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search(
-      {
-        # 注意：此查询在`git grep 'THREE PLACES'`中
-        'me.up_admin' => 'up',
-        'me.up'       => { '!=' => 'up' },
-        'me.type' => [ '-or' =>
-          { '=' => undef },
-          { '!~*' => '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)$' },
-        ],
-        -or => [
-          -and => [
-            \["age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime/100))::timestamp) < ?::interval",
-              [{} => $interval]],
-            -or => [
-              'last_node.time_last' => undef,
-              \["age(LOCALTIMESTAMP, last_node.time_last) > ?::interval", [{} => $interval]],
-            ]
+  return $rs->search_rs($cond, $attrs)->search(
+    {
+      # 注意：此查询在`git grep 'THREE PLACES'`中
+      'me.up_admin' => 'up',
+      'me.up'       => {'!=' => 'up'},
+      'me.type'     =>
+        ['-or' => {'=' => undef}, {'!~*' => '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)$'},],
+      -or => [
+        -and => [
+          \[
+            "age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime/100))::timestamp) < ?::interval",
+            [{} => $interval]
           ],
-          \["age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime - me.lastchange)/100)::timestamp) > ?::interval",
-            [{} => $interval]],
+          -or => [
+            'last_node.time_last' => undef,
+            \["age(LOCALTIMESTAMP, last_node.time_last) > ?::interval", [{} => $interval]],
+          ]
         ],
-      },{ join => [qw/device last_node/] },
-    );
+        \[
+          "age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime - me.lastchange)/100)::timestamp) > ?::interval",
+          [{} => $interval]
+        ],
+      ],
+    },
+    {join => [qw/device last_node/]},
+  );
 }
 
 =head2 with_properties
@@ -159,11 +172,11 @@ will add the following additional synthesized columns to the result set:
 sub with_properties {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+select' => [qw/
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+select' => [
+        qw/
           properties.error_disable_cause
           properties.remote_is_discoverable
           properties.remote_is_wap
@@ -176,20 +189,24 @@ sub with_properties {
           properties.pae_authsess_user
           properties.pae_authsess_mab
           properties.pae_last_eapol_frame_source
-        /],
-        '+as' => [qw/
+          /
+      ],
+      '+as' => [
+        qw/
           error_disable_cause
           remote_is_discoverable remote_is_wap remote_is_phone remote_dns
-          ifindex 
-          pae_authconfig_port_control 
-          pae_authconfig_state 
+          ifindex
+          pae_authconfig_port_control
+          pae_authconfig_state
           pae_authconfig_port_status
-          pae_authsess_user 
+          pae_authsess_user
           pae_authsess_mab
           pae_last_eapol_frame_source
-        /],
-        join => 'properties',
-      });
+          /
+      ],
+      join => 'properties',
+    }
+  );
 }
 
 =head2 with_remote_inventory
@@ -216,21 +233,25 @@ will add the following additional synthesized columns to the result set:
 sub with_remote_inventory {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+select' => [qw/
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+select' => [
+        qw/
           properties.remote_vendor
           properties.remote_model
           properties.remote_os_ver
           properties.remote_serial
-        /],
-        '+as' => [qw/
+          /
+      ],
+      '+as' => [
+        qw/
           remote_vendor remote_model remote_os_ver remote_serial
-        /],
-        join => 'properties',
-      });
+          /
+      ],
+      join => 'properties',
+    }
+  );
 }
 
 =head2 with_vlan_count
@@ -251,21 +272,16 @@ will add the following additional synthesized columns to the result set:
 sub with_vlan_count {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+columns' => { vlan_count =>
-          $rs->result_source->schema->resultset('DevicePortVlan')
-            ->search(
-              {
-                'dpv.ip'   => { -ident => 'me.ip' },
-                'dpv.port' => { -ident => 'me.port' },
-              },
-              { alias => 'dpv' }
-            )->count_rs->as_query
-        },
-      });
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+columns' => {
+        vlan_count => $rs->result_source->schema->resultset('DevicePortVlan')
+          ->search({'dpv.ip' => {-ident => 'me.ip'}, 'dpv.port' => {-ident => 'me.port'},}, {alias => 'dpv'})
+          ->count_rs->as_query
+      },
+    }
+  );
 }
 
 =head1 SPECIAL METHODS
@@ -277,40 +293,38 @@ handle the removal or archiving of nodes.
 
 =cut
 
-sub _plural { (shift || 0) == 1 ? 'entry' : 'entries' };
+sub _plural { (shift || 0) == 1 ? 'entry' : 'entries' }
 
 sub delete {
   my $self = shift;
 
   my $schema = $self->result_source->schema;
-  my $ports = $self->search(undef, { columns => 'ip' });
+  my $ports  = $self->search(undef, {columns => 'ip'});
 
   my $ip = undef;
   {
     no autovivification;
-    try { $ip ||= ${ $ports->{attrs}->{where}->{ip}->{'-in'} }->[1]->[1] };
+    try { $ip ||= ${$ports->{attrs}->{where}->{ip}->{'-in'}}->[1]->[1] };
     try { $ip ||= $ports->{attrs}->{where}->{'me.ip'} };
   }
   $ip ||= 'netdisco';
 
-  foreach my $set (qw/
+  foreach my $set (
+    qw/
     DevicePortPower
     DevicePortProperties
     DevicePortSsid
     DevicePortVlan
     DevicePortWireless
-  /) {
-      my $gone = $schema->resultset($set)->search(
-        { ip => { '-in' => $ports->as_query }},
-      )->delete;
+    /
+  ) {
+    my $gone = $schema->resultset($set)->search({ip => {'-in' => $ports->as_query}},)->delete;
 
-      Dancer::Logger::debug( sprintf( ' [%s] db/ports - removed %d port %s from %s',
-        $ip, $gone, _plural($gone), $set ) ) if defined Dancer::Logger::logger();
+    Dancer::Logger::debug(sprintf(' [%s] db/ports - removed %d port %s from %s', $ip, $gone, _plural($gone), $set))
+      if defined Dancer::Logger::logger();
   }
 
-  $schema->resultset('Node')->search(
-    { switch => { '-in' => $ports->as_query }},
-  )->delete(@_);
+  $schema->resultset('Node')->search({switch => {'-in' => $ports->as_query}},)->delete(@_);
 
   # 现在让DBIC做它的事情
   return $self->next::method();

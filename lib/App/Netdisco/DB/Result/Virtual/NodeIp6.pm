@@ -15,6 +15,7 @@ __PACKAGE__->subclass;
 __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 __PACKAGE__->table("node_ip6");
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：IPv6节点IP
 # 只选择IPv6地址的节点IP记录
 __PACKAGE__->result_source_instance->view_definition(q{

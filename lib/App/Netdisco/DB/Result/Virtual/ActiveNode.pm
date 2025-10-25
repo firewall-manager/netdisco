@@ -15,6 +15,7 @@ __PACKAGE__->subclass;
 __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 __PACKAGE__->table("active_node");
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：活跃节点
 # 只选择活跃状态的节点记录
 __PACKAGE__->result_source_instance->view_definition(q{

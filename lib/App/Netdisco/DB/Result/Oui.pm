@@ -9,15 +9,13 @@ use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("oui");
+
 # 定义表列
 # 包含OUI标识符、公司名称和缩写信息
 __PACKAGE__->add_columns(
-  "oui",
-  { data_type => "varchar", is_nullable => 0, size => 8 },
-  "company",
-  { data_type => "text", is_nullable => 1 },
-  "abbrev",
-  { data_type => "text", is_nullable => 1 },
+  "oui",     {data_type => "varchar", is_nullable => 0, size => 8},
+  "company", {data_type => "text",    is_nullable => 1},
+  "abbrev",  {data_type => "text",    is_nullable => 1},
 );
 
 # 设置主键

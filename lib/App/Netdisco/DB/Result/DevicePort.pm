@@ -13,78 +13,76 @@ use MIME::Base64 'encode_base64url';
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device_port");
+
 # 定义表列
 # 包含设备IP、端口、描述、状态、速度、VLAN等完整端口信息
 __PACKAGE__->add_columns(
   "ip",
-  { data_type => "inet", is_nullable => 0 },
+  {data_type => "inet", is_nullable => 0},
   "port",
-  { data_type => "text", is_nullable => 0 },
-  "creation",
-  {
+  {data_type => "text", is_nullable => 0},
+  "creation", {
     data_type     => "timestamp",
     default_value => \"LOCALTIMESTAMP",
     is_nullable   => 1,
-    original      => { default_value => \"LOCALTIMESTAMP" },
+    original      => {default_value => \"LOCALTIMESTAMP"},
   },
   "descr",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "up",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "up_admin",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "type",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "duplex",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "duplex_admin",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "speed",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "speed_admin",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "name",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "mac",
-  { data_type => "macaddr", is_nullable => 1 },
+  {data_type => "macaddr", is_nullable => 1},
   "mtu",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "stp",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "remote_ip",
-  { data_type => "inet", is_nullable => 1 },
+  {data_type => "inet", is_nullable => 1},
   "remote_port",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "remote_type",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "remote_id",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "has_subinterfaces",
-  { data_type => "boolean", is_nullable => 0, default_value => \"false" },
+  {data_type => "boolean", is_nullable => 0, default_value => \"false"},
   "is_master",
-  { data_type => "boolean", is_nullable => 0, default_value => \"false" },
+  {data_type => "boolean", is_nullable => 0, default_value => \"false"},
   "slave_of",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "manual_topo",
-  { data_type => "boolean", is_nullable => 0, default_value => \"false" },
+  {data_type => "boolean", is_nullable => 0, default_value => \"false"},
   "is_uplink",
-  { data_type => "boolean", is_nullable => 1 },
+  {data_type => "boolean", is_nullable => 1},
   "vlan",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "pvid",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "lastchange",
-  { data_type => "bigint", is_nullable => 1 },
+  {data_type => "bigint", is_nullable => 1},
   "custom_fields",
-  { data_type => "jsonb", is_nullable => 0, default_value => \"{}" },
+  {data_type => "jsonb", is_nullable => 0, default_value => \"{}"},
   "tags",
-  { data_type => "text[]", is_nullable => 0, default_value => \"'{}'::text[]" },
+  {data_type => "text[]", is_nullable => 0, default_value => \"'{}'::text[]"},
 );
 
 # 设置主键
 __PACKAGE__->set_primary_key("port", "ip");
-
-
 
 =head1 RELATIONSHIPS
 
@@ -96,7 +94,7 @@ Returns the Device table entry to which the given Port is related.
 
 # 定义关联关系：设备
 # 返回给定端口相关的设备表条目
-__PACKAGE__->belongs_to( device => 'App::Netdisco::DB::Result::Device', 'ip' );
+__PACKAGE__->belongs_to(device => 'App::Netdisco::DB::Result::Device', 'ip');
 
 =head2 port_vlans
 
@@ -105,8 +103,10 @@ These will be both tagged and untagged. Use this relation in search conditions.
 
 =cut
 
-__PACKAGE__->has_many( port_vlans => 'App::Netdisco::DB::Result::DevicePortVlan',
-  { 'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port' } );
+__PACKAGE__->has_many(
+  port_vlans => 'App::Netdisco::DB::Result::DevicePortVlan',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port'}
+);
 
 =head2 nodes / active_nodes / nodes_with_age / active_nodes_with_age
 
@@ -122,39 +122,27 @@ days/weeks/months/years".
 
 =cut
 
-__PACKAGE__->has_many( nodes => 'App::Netdisco::DB::Result::Node',
-  {
-    'foreign.switch' => 'self.ip',
-    'foreign.port' => 'self.port',
-  },
-  { join_type => 'LEFT' },
+__PACKAGE__->has_many(
+  nodes => 'App::Netdisco::DB::Result::Node',
+  {'foreign.switch' => 'self.ip', 'foreign.port' => 'self.port',}, {join_type => 'LEFT'},
 );
 
-__PACKAGE__->has_many( nodes_with_age => 'App::Netdisco::DB::Result::Virtual::NodeWithAge',
-  {
-    'foreign.switch' => 'self.ip',
-    'foreign.port' => 'self.port',
-  },
-  { join_type => 'LEFT',
-    cascade_copy => 0, cascade_update => 0, cascade_delete => 0 },
+__PACKAGE__->has_many(
+  nodes_with_age => 'App::Netdisco::DB::Result::Virtual::NodeWithAge',
+  {'foreign.switch' => 'self.ip', 'foreign.port' => 'self.port',},
+  {join_type => 'LEFT', cascade_copy => 0, cascade_update => 0, cascade_delete => 0},
 );
 
-__PACKAGE__->has_many( active_nodes => 'App::Netdisco::DB::Result::Virtual::ActiveNode',
-  {
-    'foreign.switch' => 'self.ip',
-    'foreign.port' => 'self.port',
-  },
-  { join_type => 'LEFT',
-    cascade_copy => 0, cascade_update => 0, cascade_delete => 0 },
+__PACKAGE__->has_many(
+  active_nodes => 'App::Netdisco::DB::Result::Virtual::ActiveNode',
+  {'foreign.switch' => 'self.ip', 'foreign.port' => 'self.port',},
+  {join_type => 'LEFT', cascade_copy => 0, cascade_update => 0, cascade_delete => 0},
 );
 
-__PACKAGE__->has_many( active_nodes_with_age => 'App::Netdisco::DB::Result::Virtual::ActiveNodeWithAge',
-  {
-    'foreign.switch' => 'self.ip',
-    'foreign.port' => 'self.port',
-  },
-  { join_type => 'LEFT',
-    cascade_copy => 0, cascade_update => 0, cascade_delete => 0 },
+__PACKAGE__->has_many(
+  active_nodes_with_age => 'App::Netdisco::DB::Result::Virtual::ActiveNodeWithAge',
+  {'foreign.switch' => 'self.ip', 'foreign.port' => 'self.port',},
+  {join_type => 'LEFT', cascade_copy => 0, cascade_update => 0, cascade_delete => 0},
 );
 
 =head2 logs
@@ -163,8 +151,9 @@ Returns the set of C<device_port_log> entries associated with this Port.
 
 =cut
 
-__PACKAGE__->has_many( logs => 'App::Netdisco::DB::Result::DevicePortLog',
-  { 'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port' },
+__PACKAGE__->has_many(
+  logs => 'App::Netdisco::DB::Result::DevicePortLog',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port'},
 );
 
 =head2 power
@@ -174,9 +163,10 @@ device port.
 
 =cut
 
-__PACKAGE__->might_have( power => 'App::Netdisco::DB::Result::DevicePortPower', {
-  'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',
-});
+__PACKAGE__->might_have(
+  power => 'App::Netdisco::DB::Result::DevicePortPower',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',}
+);
 
 =head2 properties
 
@@ -185,9 +175,10 @@ device port.
 
 =cut
 
-__PACKAGE__->might_have( properties => 'App::Netdisco::DB::Result::DevicePortProperties', {
-  'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',
-});
+__PACKAGE__->might_have(
+  properties => 'App::Netdisco::DB::Result::DevicePortProperties',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',}
+);
 
 =head2 ssid
 
@@ -197,10 +188,8 @@ device port.
 =cut
 
 __PACKAGE__->might_have(
-    ssid => 'App::Netdisco::DB::Result::DevicePortSsid',
-    {   'foreign.ip'   => 'self.ip',
-        'foreign.port' => 'self.port',
-    }
+  ssid => 'App::Netdisco::DB::Result::DevicePortSsid',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',}
 );
 
 =head2 wireless
@@ -211,10 +200,8 @@ device port.
 =cut
 
 __PACKAGE__->might_have(
-    wireless => 'App::Netdisco::DB::Result::DevicePortWireless',
-    {   'foreign.ip'   => 'self.ip',
-        'foreign.port' => 'self.port',
-    }
+  wireless => 'App::Netdisco::DB::Result::DevicePortWireless',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.port',}
 );
 
 =head2 native_vlan
@@ -225,16 +212,15 @@ vlan of this port.
 =cut
 
 __PACKAGE__->belongs_to(
-    native_vlan => 'App::Netdisco::DB::Result::DeviceVlan',
-    sub {
-        my $args = shift;
-        return {
-            "$args->{foreign_alias}.ip" =>
-              { '-ident' => "$args->{self_alias}.ip" },
-            "$args->{self_alias}.vlan" =>
-              { '=' => \"cast($args->{foreign_alias}.vlan as text)" }
-        };
-    }, {  join_type => 'LEFT' }
+  native_vlan => 'App::Netdisco::DB::Result::DeviceVlan',
+  sub {
+    my $args = shift;
+    return {
+      "$args->{foreign_alias}.ip" => {'-ident' => "$args->{self_alias}.ip"},
+      "$args->{self_alias}.vlan"  => {'='      => \"cast($args->{foreign_alias}.vlan as text)"}
+    };
+  },
+  {join_type => 'LEFT'}
 );
 
 =head2 agg_master
@@ -245,12 +231,8 @@ to another in a link aggregate.
 =cut
 
 __PACKAGE__->belongs_to(
-    agg_master => 'App::Netdisco::DB::Result::DevicePort', {
-      'foreign.ip'   => 'self.ip',
-      'foreign.port' => 'self.slave_of',
-    }, {
-      join_type => 'LEFT',
-    }
+  agg_master => 'App::Netdisco::DB::Result::DevicePort',
+  {'foreign.ip' => 'self.ip', 'foreign.port' => 'self.slave_of',}, {join_type => 'LEFT',}
 );
 
 =head2 neighbor_alias
@@ -265,17 +247,20 @@ database.
 
 =cut
 
-__PACKAGE__->belongs_to( neighbor_alias => 'App::Netdisco::DB::Result::DeviceIp',
+__PACKAGE__->belongs_to(
+  neighbor_alias => 'App::Netdisco::DB::Result::DeviceIp',
   sub {
-      my $args = shift;
-      return {
-          "$args->{foreign_alias}.alias" => { '=' =>
-            $args->{self_resultsource}->schema->resultset('DeviceIp')
-              ->search({alias => { -ident => "$args->{self_alias}.remote_ip"}},
-                       {rows => 1, columns => 'ip', alias => 'devipsub'})->as_query }
-      };
+    my $args = shift;
+    return {
+      "$args->{foreign_alias}.alias" => {
+        '=' => $args->{self_resultsource}->schema->resultset('DeviceIp')
+          ->search({alias => {-ident => "$args->{self_alias}.remote_ip"}},
+          {rows => 1, columns => 'ip', alias => 'devipsub'})
+          ->as_query
+      }
+    };
   },
-  { join_type => 'LEFT' },
+  {join_type => 'LEFT'},
 );
 
 =head2 last_node
@@ -287,12 +272,8 @@ The JOIN is of type "LEFT" in case there isn't any such node.
 =cut
 
 __PACKAGE__->belongs_to(
-    last_node => 'App::Netdisco::DB::Result::Virtual::LastNode', {
-      'foreign.switch' => 'self.ip',
-      'foreign.port'   => 'self.port',
-    }, {
-      join_type => 'LEFT',
-    }
+  last_node => 'App::Netdisco::DB::Result::Virtual::LastNode',
+  {'foreign.switch' => 'self.ip', 'foreign.port' => 'self.port',}, {join_type => 'LEFT',}
 );
 
 =head2 vlans
@@ -305,8 +286,7 @@ See also C<vlan_count>.
 
 =cut
 
-__PACKAGE__->many_to_many( vlans => 'port_vlans', 'vlan_entry' );
-
+__PACKAGE__->many_to_many(vlans => 'port_vlans', 'vlan_entry');
 
 =head2 oui
 
@@ -319,15 +299,13 @@ The JOIN is of type LEFT, in case the OUI table has not been populated.
 
 =cut
 
-__PACKAGE__->belongs_to( oui => 'App::Netdisco::DB::Result::Oui',
+__PACKAGE__->belongs_to(
+  oui => 'App::Netdisco::DB::Result::Oui',
   sub {
-      my $args = shift;
-      return {
-          "$args->{foreign_alias}.oui" =>
-            { '=' => \"substring(cast($args->{self_alias}.mac as varchar) for 8)" }
-      };
+    my $args = shift;
+    return {"$args->{foreign_alias}.oui" => {'=' => \"substring(cast($args->{self_alias}.mac as varchar) for 8)"}};
   },
-  { join_type => 'LEFT' }
+  {join_type => 'LEFT'}
 );
 
 =head2 manufacturer
@@ -339,15 +317,15 @@ The JOIN is of type LEFT, in case the Manufacturer table has not been populated.
 
 =cut
 
-__PACKAGE__->belongs_to( manufacturer => 'App::Netdisco::DB::Result::Manufacturer',
+__PACKAGE__->belongs_to(
+  manufacturer => 'App::Netdisco::DB::Result::Manufacturer',
   sub {
-      my $args = shift;
-      return {
-        "$args->{foreign_alias}.range" => { '@>' =>
-          \qq{('x' || lpad( translate( $args->{self_alias}.mac ::text, ':', ''), 16, '0')) ::bit(64) ::bigint} },
-      };
+    my $args = shift;
+    return {"$args->{foreign_alias}.range" =>
+        {'@>' => \qq{('x' || lpad( translate( $args->{self_alias}.mac ::text, ':', ''), 16, '0')) ::bit(64) ::bigint}},
+    };
   },
-  { join_type => 'LEFT' }
+  {join_type => 'LEFT'}
 );
 
 =head1 ADDITIONAL METHODS
@@ -365,8 +343,8 @@ the database.
 # 邻居设备方法
 # 返回给定端口上邻居设备的设备条目
 sub neighbor {
-    my $row = shift;
-    return eval { $row->neighbor_alias->device || undef };
+  my $row = shift;
+  return eval { $row->neighbor_alias->device || undef };
 }
 
 =head1 ADDITIONAL COLUMNS
@@ -497,14 +475,12 @@ information was given, including vendor, model, OS version, and serial number.
 =cut
 
 sub remote_inventory {
-  my $port = shift;
-  my $os_ver = ($port->get_column('remote_os_ver')
-    ? ('running '. $port->get_column('remote_os_ver')) : '');
-  my $serial = ($port->get_column('remote_serial')
-    ? ('('. $port->get_column('remote_serial') .')') : '');
+  my $port   = shift;
+  my $os_ver = ($port->get_column('remote_os_ver') ? ('running ' . $port->get_column('remote_os_ver')) : '');
+  my $serial = ($port->get_column('remote_serial') ? ('(' . $port->get_column('remote_serial') . ')')  : '');
 
-  my $retval = join ' ', ($port->get_column('remote_vendor') || ''),
-    ($port->get_column('remote_model') || ''), $serial, $os_ver;
+  my $retval = join ' ', ($port->get_column('remote_vendor') || ''), ($port->get_column('remote_model') || ''),
+    $serial, $os_ver;
 
   return (($retval =~ m/[[:alnum:]]/) ? $retval : '');
 }
@@ -574,8 +550,7 @@ Returns the most recent comment from the logs for this device port.
 # 最后注释方法
 # 返回此设备端口日志中最新的注释
 sub last_comment {
-  my $row = (shift)->logs->search(undef,
-    { order_by => { -desc => 'creation' }, rows => 1 })->first;
+  my $row = (shift)->logs->search(undef, {order_by => {-desc => 'creation'}, rows => 1})->first;
   return ($row ? $row->log : '');
 }
 

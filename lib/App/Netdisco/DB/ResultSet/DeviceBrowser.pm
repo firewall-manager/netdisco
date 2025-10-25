@@ -23,12 +23,14 @@ sub with_snmp_object {
   my ($rs, $ip) = @_;
   $ip ||= '255.255.255.255';
 
-  return $rs->search(undef,{
-    # 注意：绑定参数列表顺序很重要
-    join => ['snmp_object'],
-    bind => [$ip],
-    prefetch => 'snmp_object',
-  });
+  return $rs->search(
+    undef, {
+      # 注意：绑定参数列表顺序很重要
+      join     => ['snmp_object'],
+      bind     => [$ip],
+      prefetch => 'snmp_object',
+    }
+  );
 }
 
 1;

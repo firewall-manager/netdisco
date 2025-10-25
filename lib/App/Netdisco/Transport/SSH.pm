@@ -31,9 +31,9 @@ __PACKAGE__->attributes(qw/ sessions /);
 # 初始化方法
 # 用途：初始化 SSH 传输对象，设置信号处理并创建会话缓存
 sub init {
-  my ( $class, $self ) = @_;
+  my ($class, $self) = @_;
   $SIG{CHLD} = 'IGNORE';
-  $self->sessions( {} );
+  $self->sessions({});
   return $self;
 }
 
@@ -52,30 +52,27 @@ Returns C<undef> if the connection fails.
   use Moo;
 
   # 定义会话属性
-  has 'ssh'  => ( is => 'rw' );
-  has 'auth' => ( is => 'rw' );
-  has 'host' => ( is => 'rw' );
-  has 'platform' => ( is => 'rw' );
+  has 'ssh'      => (is => 'rw');
+  has 'auth'     => (is => 'rw');
+  has 'host'     => (is => 'rw');
+  has 'platform' => (is => 'rw');
 
   # ARP 和 IP 地址查询方法
   sub arpnip {
     my $self = shift;
-    $self->platform->arpnip(@_, $self->host, $self->ssh, $self->auth)
-      if $self->platform->can('arpnip');
+    $self->platform->arpnip(@_, $self->host, $self->ssh, $self->auth) if $self->platform->can('arpnip');
   }
 
   # MAC 地址收集方法
   sub macsuck {
     my $self = shift;
-    $self->platform->macsuck(@_, $self->host, $self->ssh, $self->auth)
-      if $self->platform->can('macsuck');
+    $self->platform->macsuck(@_, $self->host, $self->ssh, $self->auth) if $self->platform->can('macsuck');
   }
 
   # 子网查询方法
   sub subnets {
     my $self = shift;
-    $self->platform->subnets(@_, $self->host, $self->ssh, $self->auth)
-        if $self->platform->can('subnets');
+    $self->platform->subnets(@_, $self->host, $self->ssh, $self->auth) if $self->platform->can('subnets');
   }
 }
 
@@ -84,7 +81,7 @@ Returns C<undef> if the connection fails.
 sub session_for {
   my ($class, $ip) = @_;
 
-  my $device = get_device($ip) or return undef;
+  my $device   = get_device($ip)            or return undef;
   my $sessions = $class->instance->sessions or return undef;
 
   # 检查缓存
@@ -107,23 +104,22 @@ sub session_for {
 
   # 配置 SSH 主选项
   my @master_opts = qw(-o BatchMode=no);
-  push(@master_opts, @{$auth->{ssh_master_opts}})
-    if $auth->{ssh_master_opts};
+  push(@master_opts, @{$auth->{ssh_master_opts}}) if $auth->{ssh_master_opts};
 
   # 创建 SSH 连接
   $Net::OpenSSH::debug = $ENV{SSH_TRACE};
   my $ssh = Net::OpenSSH->new(
     $device->ip,
-    user => $auth->{username},
-    password => $auth->{password},
-    key_path => $auth->{key_path},
-    passphrase => $auth->{passphrase},
-    port => $auth->{port},
-    batch_mode => $auth->{batch_mode},
-    timeout => $auth->{timeout} ? $auth->{timeout} : 30,
-    async => 0,
+    user                => $auth->{username},
+    password            => $auth->{password},
+    key_path            => $auth->{key_path},
+    passphrase          => $auth->{passphrase},
+    port                => $auth->{port},
+    batch_mode          => $auth->{batch_mode},
+    timeout             => $auth->{timeout} ? $auth->{timeout} : 30,
+    async               => 0,
     default_stderr_file => '/dev/null',
-    master_opts => \@master_opts
+    master_opts         => \@master_opts
   );
 
   # 检查连接错误
@@ -131,27 +127,23 @@ sub session_for {
     error sprintf " [%s] ssh connection error [%s]", $device->ip, $ssh->error;
     return undef;
   }
-  elsif (! $ssh) {
+  elsif (!$ssh) {
     error sprintf " [%s] Net::OpenSSH instantiation error", $device->ip;
     return undef;
   }
 
   # 加载平台模块
   my $platform = "App::Netdisco::SSHCollector::Platform::" . $auth->{platform};
-  my $happy = false;
+  my $happy    = false;
   try {
     Module::Load::load $platform;
     $happy = true;
-  } catch { error $_ };
+  }
+  catch { error $_ };
   return unless $happy;
 
   # 创建会话对象
-  my $sess = MySession->new(
-    ssh  => $ssh,
-    auth => $auth,
-    host => $device->ip,
-    platform => $platform->new(),
-  );
+  my $sess = MySession->new(ssh => $ssh, auth => $auth, host => $device->ip, platform => $platform->new(),);
 
   return ($sessions->{$device->ip} = $sess);
 }

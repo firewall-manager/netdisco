@@ -44,62 +44,62 @@ Returns a list of hashrefs in the format C<{ mac =E<gt> MACADDR, ip =E<gt> IPADD
 # 该方法用于连接ArubaCX交换机并获取所有VRF的ARP表信息
 sub arpnip {
 
-    my ($self, $hostlabel, $ssh, $args) = @_;
+  my ($self, $hostlabel, $ssh, $args) = @_;
 
-    debug "$hostlabel $$ arpnip()";
+  debug "$hostlabel $$ arpnip()";
 
-    # 打开伪终端连接
-    my ($pty, $pid) = $ssh->open2pty;
-    unless ($pty) {
-        debug "无法运行远程命令 [$hostlabel] " . $ssh->error;
-        return ();
+  # 打开伪终端连接
+  my ($pty, $pid) = $ssh->open2pty;
+  unless ($pty) {
+    debug "无法运行远程命令 [$hostlabel] " . $ssh->error;
+    return ();
+  }
+  my $expect = Expect->init($pty);
+
+  my ($pos, $error, $match, $before, $after);
+
+  my $prompt = qr/#/;    # 匹配设备提示符
+  ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
+
+  # 禁用分页显示
+  $expect->send("no page\n");
+  ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
+
+  # 获取所有VRF的ARP表
+  $expect->send("show arp all-vrfs\n");
+  ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
+  my @lines = split(m/\n/, $before);
+
+  # 退出连接
+  $expect->send("exit\n");
+  $expect->soft_close();
+
+  my @arpentries = ();
+
+  # 'show arp'命令的输出示例:
+  #
+  # IPv4 Address     MAC                Port         Physical Port                                      State
+  # -------------------------------------------------------------------------------------------------------------
+  # a.b.c.d          aa:bb:cc:dd:ee:ff  vlanNN       1/1/1                                              reachable
+  # ...
+  #
+  # Total Number Of ARP Entries Listed: 573.
+  # -------------------------------------------------------------------------------------------------------------
+
+  # 匹配我们感兴趣的行的模式:
+  my $ip_patt  = qr/(?:\d+\.\d+\.\d+\.\d+)/x;                  # IP地址模式
+  my $mac_patt = qr/(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/x;          # MAC地址模式
+  my $linereg  = qr/($ip_patt)\s+($mac_patt)\s+\S+\s+\S+/x;    # 完整行匹配模式
+
+  # 解析每行ARP输出
+  foreach my $line (@lines) {
+    if ($line =~ $linereg) {
+      my ($ip, $mac) = ($1, $2);
+      push @arpentries, {mac => $mac, ip => $ip};
     }
-    my $expect = Expect->init($pty);
+  }
 
-    my ($pos, $error, $match, $before, $after);
-
-    my $prompt = qr/#/;  # 匹配设备提示符
-    ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
-
-    # 禁用分页显示
-    $expect->send("no page\n");
-    ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
-
-    # 获取所有VRF的ARP表
-    $expect->send("show arp all-vrfs\n");
-    ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
-    my @lines= split(m/\n/,$before);
-
-    # 退出连接
-    $expect->send("exit\n");
-    $expect->soft_close();
-
-    my @arpentries = ();
-
-    # 'show arp'命令的输出示例:
-    #
-    # IPv4 Address     MAC                Port         Physical Port                                      State
-    # -------------------------------------------------------------------------------------------------------------
-    # a.b.c.d          aa:bb:cc:dd:ee:ff  vlanNN       1/1/1                                              reachable
-    # ...
-    #
-    # Total Number Of ARP Entries Listed: 573.
-    # -------------------------------------------------------------------------------------------------------------
-
-    # 匹配我们感兴趣的行的模式:
-    my $ip_patt = qr/(?:\d+\.\d+\.\d+\.\d+)/x;  # IP地址模式
-    my $mac_patt = qr/(?:[0-9a-f]{2}:){5}[0-9a-f]{2}/x;  # MAC地址模式
-    my $linereg = qr/($ip_patt)\s+($mac_patt)\s+\S+\s+\S+/x;  # 完整行匹配模式
-
-    # 解析每行ARP输出
-    foreach my $line (@lines) {
-        if ($line =~ $linereg) {
-            my ($ip, $mac) = ($1, $2);
-            push @arpentries, { mac => $mac, ip => $ip };
-        }
-    }
-
-    return @arpentries;
+  return @arpentries;
 }
 
 1;

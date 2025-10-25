@@ -11,14 +11,14 @@ use App::Netdisco::Util::Device 'get_device';
 use App::Netdisco::Util::Permission qw/acl_matches acl_matches_only/;
 
 use base 'Exporter';
-our @EXPORT = ();
+our @EXPORT    = ();
 our @EXPORT_OK = qw/
   sync_portctl_roles
   port_acl_service port_acl_pvid port_acl_name
   get_port get_iid get_powerid
   is_vlan_subinterface port_has_phone port_has_wap
   to_speed
-/;
+  /;
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 =head1 NAME
@@ -49,30 +49,30 @@ it. If such a role is removed, then a backup of the original is restored.
 # 同步端口控制角色
 # 从数据库加载端口控制角色并将它们合并到portctl_role配置中
 sub sync_portctl_roles {
-  my @db_roles = schema(vars->{'tenant'})
-    ->resultset('PortCtlRole')->role_names;
+  my @db_roles = schema(vars->{'tenant'})->resultset('PortCtlRole')->role_names;
   config->{'portctl_by_role'} = {};
 
   # 处理配置中的角色
-  foreach my $role (sort {$a cmp $b} keys %{ setting('portctl_by_role_shadow') }) {
-      config->{'portctl_by_role'}->{$role}
-        = (setting('portctl_by_role_shadow')->{$role} || '!group:__ANY__');
+  foreach my $role (sort { $a cmp $b } keys %{setting('portctl_by_role_shadow')}) {
+    config->{'portctl_by_role'}->{$role} = (setting('portctl_by_role_shadow')->{$role} || '!group:__ANY__');
   }
 
   # 处理数据库中的角色
   foreach my $role (@db_roles) {
-      my @rows = schema(vars->{'tenant'})->resultset('PortCtlRole')
-        ->search({ role_name => $role },
-                 { prefetch => [qw/device_acl port_acl/], order_by => 'me.id' })->all;
+    my @rows
+      = schema(vars->{'tenant'})
+      ->resultset('PortCtlRole')
+      ->search({role_name => $role}, {prefetch => [qw/device_acl port_acl/], order_by => 'me.id'})
+      ->all;
 
-      config->{'portctl_by_role'}->{$role} = {};
-      foreach my $pair (@rows) {
-          # 将左侧设备ACL转换为命名组
-          my $group = 'synthesized_group_'. $pair->device_acl->id;
-          config->{'host_groups'}->{$group} = $pair->device_acl->rules;
-          config->{'portctl_by_role'}->{$role}->{'group:'. $group}
-            = $pair->port_acl->rules;
-      }
+    config->{'portctl_by_role'}->{$role} = {};
+    foreach my $pair (@rows) {
+
+      # 将左侧设备ACL转换为命名组
+      my $group = 'synthesized_group_' . $pair->device_acl->id;
+      config->{'host_groups'}->{$group} = $pair->device_acl->rules;
+      config->{'portctl_by_role'}->{$role}->{'group:' . $group} = $pair->port_acl->rules;
+    }
   }
 }
 
@@ -102,9 +102,7 @@ sub port_acl_by_role_check {
 
   # portctl_by_role检查
   if ($device and ref $device and $user) {
-    $user = ref $user ? $user :
-      schema('netdisco')->resultset('User')
-                        ->find({ username => $user });
+    $user = ref $user ? $user : schema('netdisco')->resultset('User')->find({username => $user});
     return false unless $user;
 
     # 特殊情况管理员用户允许继续，因为
@@ -115,23 +113,24 @@ sub port_acl_by_role_check {
     my $acl  = $role ? setting('portctl_by_role')->{$role} : undef;
 
     if ($acl and (ref $acl eq q{} or ref $acl eq ref [])) {
-        # 当角色ACL是设备ACL时允许所有端口
-        # 但仍然检查设备
-        return acl_matches($device, $acl);
+
+      # 当角色ACL是设备ACL时允许所有端口
+      # 但仍然检查设备
+      return acl_matches($device, $acl);
     }
     elsif ($acl and ref $acl eq ref {}) {
-        my $found = false;
-        foreach my $key (keys %$acl) {
-            # 左侧匹配设备，右侧匹配端口
-            next unless $key and $acl->{$key};
-            if (acl_matches($device, $key)
-                and acl_matches_only($port, $acl->{$key})) {
+      my $found = false;
+      foreach my $key (keys %$acl) {
 
-                $found = true;
-                last;
-            }
+        # 左侧匹配设备，右侧匹配端口
+        next unless $key and $acl->{$key};
+        if (acl_matches($device, $key) and acl_matches_only($port, $acl->{$key})) {
+
+          $found = true;
+          last;
         }
-        return $found;
+      }
+      return $found;
     }
 
     # 如果用户有"启用（任何端口）"设置
@@ -188,13 +187,13 @@ sub port_acl_service {
 
   return false if setting('portctl_nameonly');
 
-  return false if setting('portctl_nowaps') and port_has_wap($port);
+  return false if setting('portctl_nowaps')   and port_has_wap($port);
   return false if setting('portctl_nophones') and port_has_phone($port);
 
-  return false if (not setting('portctl_uplinks')) and
-    (($port->is_uplink or $port->remote_type
-      or $port->is_master or is_vlan_subinterface($port)) and not
-     (port_has_wap($port) or port_has_phone($port)));
+  return false
+    if (not setting('portctl_uplinks'))
+    and (($port->is_uplink or $port->remote_type or $port->is_master or is_vlan_subinterface($port))
+    and not(port_has_wap($port) or port_has_phone($port)));
 
   return false if not port_acl_check(@_);
   return port_acl_by_role_check(@_);
@@ -261,12 +260,12 @@ sub get_port {
 
   return unless $device and $device->in_storage;
 
-  my $port = schema(vars->{'tenant'})->resultset('DevicePort')->with_properties
-    ->find({ip => $device->ip, port => $portname});
+  my $port
+    = schema(vars->{'tenant'})->resultset('DevicePort')->with_properties->find({ip => $device->ip, port => $portname});
 
   return unless $port and $port->in_storage;
 
-  return ( wantarray ? ($device, $port) : $port );
+  return (wantarray ? ($device, $port) : $port);
 }
 
 =head2 get_iid( $info, $port )
@@ -308,8 +307,7 @@ sub get_powerid {
   # accept either port name or dbic object
   $port = $port->port if ref $port;
 
-  my $iid = get_iid($info, $port)
-    or return undef;
+  my $iid = get_iid($info, $port) or return undef;
 
   my $p_interfaces = $info->peth_port_ifindex;
   my %rev_p_if     = reverse %$p_interfaces;
@@ -332,10 +330,11 @@ sub is_vlan_subinterface {
   my $port = shift;
   return true if $port->has_subinterfaces;
 
-  my $is_vlan  = (($port->type and
-    $port->type =~ /^(53|propVirtual|l2vlan|l3ipvlan|135|136|137)$/i)
-    or ($port->port and $port->port =~ /vlan/i)
-    or ($port->descr and $port->descr =~ /vlan/i)) ? 1 : 0;
+  my $is_vlan = (
+         ($port->type  and $port->type  =~ /^(53|propVirtual|l2vlan|l3ipvlan|135|136|137)$/i)
+      or ($port->port  and $port->port  =~ /vlan/i)
+      or ($port->descr and $port->descr =~ /vlan/i)
+  ) ? 1 : 0;
 
   return $is_vlan;
 }
@@ -368,26 +367,26 @@ sub port_has_wap {
 
 # copied from SNMP::Info to avoid introducing dependency to web frontend
 sub munge_highspeed {
-    my $speed = shift;
-    my $fmt   = "%d Mbps";
+  my $speed = shift;
+  my $fmt   = "%d Mbps";
 
-    if ( $speed > 9999999 ) {
-        $fmt = "%d Tbps";
-        $speed /= 1000000;
-    }
-    elsif ( $speed > 999999 ) {
-        $fmt = "%.1f Tbps";
-        $speed /= 1000000.0;
-    }
-    elsif ( $speed > 9999 ) {
-        $fmt = "%d Gbps";
-        $speed /= 1000;
-    }
-    elsif ( $speed > 999 ) {
-        $fmt = "%.1f Gbps";
-        $speed /= 1000.0;
-    }
-    return sprintf( $fmt, $speed );
+  if ($speed > 9999999) {
+    $fmt = "%d Tbps";
+    $speed /= 1000000;
+  }
+  elsif ($speed > 999999) {
+    $fmt = "%.1f Tbps";
+    $speed /= 1000000.0;
+  }
+  elsif ($speed > 9999) {
+    $fmt = "%d Gbps";
+    $speed /= 1000;
+  }
+  elsif ($speed > 999) {
+    $fmt = "%.1f Gbps";
+    $speed /= 1000.0;
+  }
+  return sprintf($fmt, $speed);
 }
 
 =head2 to_speed( $speed )

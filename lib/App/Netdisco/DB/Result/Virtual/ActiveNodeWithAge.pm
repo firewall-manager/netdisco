@@ -15,6 +15,7 @@ __PACKAGE__->subclass;
 __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 __PACKAGE__->table("active_node_with_age");
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：带年龄的活跃节点
 # 计算节点最后活动时间的年龄，格式化为可读的时间差
 __PACKAGE__->result_source_instance->view_definition(q{
@@ -26,9 +27,6 @@ __PACKAGE__->result_source_instance->view_definition(q{
 
 # 添加年龄列定义
 # time_last_age: 节点最后活动时间的年龄，格式化为文本
-__PACKAGE__->add_columns(
-  "time_last_age",
-  { data_type => "text", is_nullable => 1 },
-);
+__PACKAGE__->add_columns("time_last_age", {data_type => "text", is_nullable => 1},);
 
 1;

@@ -16,9 +16,11 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('device_links');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：设备链路连接
 # 使用CTE（公共表表达式）分析设备间的双向链路连接，包括聚合链路统计
-__PACKAGE__->result_source_instance->view_definition(<<ENDSQL
+__PACKAGE__->result_source_instance->view_definition(
+  <<ENDSQL
   WITH BothWays AS
     ( SELECT ldp.ip AS left_ip,
              ld.dns AS left_dns,
@@ -82,64 +84,44 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含链路两端设备的IP、DNS、名称、端口和聚合信息
 __PACKAGE__->add_columns(
-  'left_ip' => {
-    data_type => 'inet',
-  },
-  'left_dns' => {
-    data_type => 'text',
-  },
-  'left_name' => {
-    data_type => 'text',
-  },
-  'left_port' => {
-    data_type => '[text]',
-  },
-  'left_descr' => {
-    data_type => '[text]',
-  },
-  'aggspeed' => {
-    data_type => 'bigint',
-  },
-  'aggports' => {
-    data_type => 'integer',
-  },
-  'right_ip' => {
-    data_type => 'inet',
-  },
-  'right_dns' => {
-    data_type => 'text',
-  },
-  'right_name' => {
-    data_type => 'text',
-  },
-  'right_port' => {
-    data_type => '[text]',
-  },
-  'right_descr' => {
-    data_type => '[text]',
-  },
+  'left_ip'     => {data_type => 'inet',},
+  'left_dns'    => {data_type => 'text',},
+  'left_name'   => {data_type => 'text',},
+  'left_port'   => {data_type => '[text]',},
+  'left_descr'  => {data_type => '[text]',},
+  'aggspeed'    => {data_type => 'bigint',},
+  'aggports'    => {data_type => 'integer',},
+  'right_ip'    => {data_type => 'inet',},
+  'right_dns'   => {data_type => 'text',},
+  'right_name'  => {data_type => 'text',},
+  'right_port'  => {data_type => '[text]',},
+  'right_descr' => {data_type => '[text]',},
 );
 
 # 定义关联关系：左侧设备端口VLAN
 # 通过IP地址和端口数组匹配左侧设备的VLAN信息
-__PACKAGE__->has_many('left_vlans', 'App::Netdisco::DB::Result::DevicePortVlan',
+__PACKAGE__->has_many(
+  'left_vlans',
+  'App::Netdisco::DB::Result::DevicePortVlan',
   sub {
     my $args = shift;
     return {
-      "$args->{foreign_alias}.ip" => { -ident => "$args->{self_alias}.left_ip" },
-      "$args->{self_alias}.left_port" => { '@>' => \"ARRAY[$args->{foreign_alias}.port]" },
+      "$args->{foreign_alias}.ip"     => {-ident => "$args->{self_alias}.left_ip"},
+      "$args->{self_alias}.left_port" => {'@>'   => \"ARRAY[$args->{foreign_alias}.port]"},
     };
   }
 );
 
 # 定义关联关系：右侧设备端口VLAN
 # 通过IP地址和端口数组匹配右侧设备的VLAN信息
-__PACKAGE__->has_many('right_vlans', 'App::Netdisco::DB::Result::DevicePortVlan',
+__PACKAGE__->has_many(
+  'right_vlans',
+  'App::Netdisco::DB::Result::DevicePortVlan',
   sub {
     my $args = shift;
     return {
-      "$args->{foreign_alias}.ip" => { -ident => "$args->{self_alias}.right_ip" },
-      "$args->{self_alias}.right_port" => { '@>' => \"ARRAY[$args->{foreign_alias}.port]" },
+      "$args->{foreign_alias}.ip"      => {-ident => "$args->{self_alias}.right_ip"},
+      "$args->{self_alias}.right_port" => {'@>'   => \"ARRAY[$args->{foreign_alias}.port]"},
     };
   }
 );

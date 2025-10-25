@@ -68,46 +68,23 @@ List of Device IPs containing modules.
 # 按字段搜索
 # 支持Web表单的智能设备模块搜索功能
 sub search_by_field {
-    my ( $rs, $p, $attrs ) = @_;
+  my ($rs, $p, $attrs) = @_;
 
-    die "condition parameter to search_by_field must be hashref\n"
-        if ref {} ne ref $p
-            or 0 == scalar keys %$p;
+  die "condition parameter to search_by_field must be hashref\n" if ref {} ne ref $p or 0 == scalar keys %$p;
 
-    my $op = $p->{matchall} ? '-and' : '-or';
+  my $op = $p->{matchall} ? '-and' : '-or';
 
-    return $rs->search_rs( {}, $attrs )->search(
-        {   $op => [
-                (   $p->{description}
-                    ? ( 'me.description' =>
-                            { '-ilike' => "\%$p->{description}\%" } )
-                    : ()
-                ),
-                (   $p->{name}
-                    ? ( 'me.name' => { '-ilike' => "\%$p->{name}\%" } )
-                    : ()
-                ),
-                (   $p->{type}
-                    ? ( 'me.type' => { '-ilike' => "\%$p->{type}\%" } )
-                    : ()
-                ),
-                (   $p->{model}
-                    ? ( 'me.model' => { '-like' => "\%$p->{model}\%" } )
-                    : ()
-                ),
-                (   $p->{serial}
-                    ? ( 'me.serial' => { '-like' => "\%$p->{serial}\%" } )
-                    : ()
-                ),
+  return $rs->search_rs({}, $attrs)->search({
+    $op => [
+      ($p->{description} ? ('me.description' => {'-ilike' => "\%$p->{description}\%"}) : ()),
+      ($p->{name}        ? ('me.name'        => {'-ilike' => "\%$p->{name}\%"})        : ()),
+      ($p->{type}        ? ('me.type'        => {'-ilike' => "\%$p->{type}\%"})        : ()),
+      ($p->{model}       ? ('me.model'       => {'-like'  => "\%$p->{model}\%"})       : ()),
+      ($p->{serial}      ? ('me.serial'      => {'-like'  => "\%$p->{serial}\%"})      : ()),
 
-                (   $p->{class}
-                    ? ( 'me.class' => { '-in' => $p->{class} } )
-                    : ()
-                ),
-                ( $p->{ips} ? ( 'me.ip' => { '-in' => $p->{ips} } ) : () ),
-            ],
-        }
-    );
+      ($p->{class} ? ('me.class' => {'-in' => $p->{class}}) : ()), ($p->{ips} ? ('me.ip' => {'-in' => $p->{ips}}) : ()),
+    ],
+  });
 }
 
 1;

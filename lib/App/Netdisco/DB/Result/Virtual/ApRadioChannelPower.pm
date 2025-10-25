@@ -12,9 +12,11 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('ap_radio_channel_power');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：AP无线电频道功率
 # 关联无线端口、设备端口和设备信息，计算功率的dBm值
-__PACKAGE__->result_source_instance->view_definition(<<ENDSQL
+__PACKAGE__->result_source_instance->view_definition(
+  <<ENDSQL
 SELECT w.channel,
        w.power,
        w.ip,
@@ -40,39 +42,17 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含无线频道、功率、设备信息等字段
 __PACKAGE__->add_columns(
-  'channel' => {
-    data_type => 'integer',
-  },
-  'power' => {
-    data_type => 'integer',
-  },
-  'ip' => {
-    data_type => 'inet',
-  },
-  'port' => {
-    data_type => 'text',
-  },
-  'port_name' => {
-    data_type => 'text',
-  },
-  'descr' => {
-    data_type => 'text',
-  },
-  'device_name' => {
-    data_type => 'text',
-  },
-  'dns' => {
-    data_type => 'text',
-  },
-  'model' => {
-    data_type => 'text',
-  },
-  'location' => {
-    data_type => 'text',
-  },
-  'power2' => {
-    data_type => 'numeric',
-  },
+  'channel'     => {data_type => 'integer',},
+  'power'       => {data_type => 'integer',},
+  'ip'          => {data_type => 'inet',},
+  'port'        => {data_type => 'text',},
+  'port_name'   => {data_type => 'text',},
+  'descr'       => {data_type => 'text',},
+  'device_name' => {data_type => 'text',},
+  'dns'         => {data_type => 'text',},
+  'model'       => {data_type => 'text',},
+  'location'    => {data_type => 'text',},
+  'power2'      => {data_type => 'numeric',},
 );
 
 1;

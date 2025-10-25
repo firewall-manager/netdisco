@@ -49,48 +49,48 @@ Returns a list of hashrefs in the format C<{ mac =E<gt> MACADDR, ip =E<gt> IPADD
 # 该方法用于连接Linux系统并获取其ARP表信息
 # 支持自定义arp命令路径
 sub arpnip {
-    my ($self, $hostlabel, $ssh, $args) = @_;
+  my ($self, $hostlabel, $ssh, $args) = @_;
 
-    debug "$hostlabel $$ arpnip()";
+  debug "$hostlabel $$ arpnip()";
 
-    # 打开伪终端连接
-    my ($pty, $pid) = $ssh->open2pty;
-    unless ($pty) {
-        debug "无法运行远程命令 [$hostlabel] " . $ssh->error;
-        return ();
+  # 打开伪终端连接
+  my ($pty, $pid) = $ssh->open2pty;
+  unless ($pty) {
+    debug "无法运行远程命令 [$hostlabel] " . $ssh->error;
+    return ();
+  }
+  my $expect = Expect->init($pty);
+
+  my ($pos, $error, $match, $before, $after);
+  my $prompt = qr/\$/;    # 匹配Linux shell提示符
+
+  # 等待shell提示符
+  ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
+
+  # 使用自定义arp命令或默认命令，跳过标题行
+  my $command = ($args->{arp_command} || 'arp');
+  $expect->send("$command -n | tail -n +2\n");
+  ($pos, $error, $match, $before, $after) = $expect->expect(5, -re, $prompt);
+
+  my @arpentries = ();
+  my @lines      = split(m/\n/, $before);
+
+  # Linux ARP输出格式: 192.168.1.1 ether 00:b6:aa:f5:bb:6e C eth1
+  my $linereg = qr/([0-9\.]+)\s+ether\s+([a-fA-F0-9:]+)/;
+
+  # 解析ARP条目
+  foreach my $line (@lines) {
+    if ($line =~ $linereg) {
+      my ($ip, $mac) = ($1, $2);
+      push @arpentries, {mac => $mac, ip => $ip};
     }
-    my $expect = Expect->init($pty);
+  }
 
-    my ($pos, $error, $match, $before, $after);
-    my $prompt = qr/\$/;  # 匹配Linux shell提示符
+  # 退出连接
+  $expect->send("exit\n");
+  $expect->soft_close();
 
-    # 等待shell提示符
-    ($pos, $error, $match, $before, $after) = $expect->expect(10, -re, $prompt);
-
-    # 使用自定义arp命令或默认命令，跳过标题行
-    my $command = ($args->{arp_command} || 'arp');
-    $expect->send("$command -n | tail -n +2\n");
-    ($pos, $error, $match, $before, $after) = $expect->expect(5, -re, $prompt);
-
-    my @arpentries = ();
-    my @lines = split(m/\n/, $before);
-
-    # Linux ARP输出格式: 192.168.1.1 ether 00:b6:aa:f5:bb:6e C eth1
-    my $linereg = qr/([0-9\.]+)\s+ether\s+([a-fA-F0-9:]+)/;
-
-    # 解析ARP条目
-    foreach my $line (@lines) {
-        if ($line =~ $linereg) {
-            my ($ip, $mac) = ($1, $2);
-            push @arpentries, { mac => $mac, ip => $ip };
-        }
-    }
-
-    # 退出连接
-    $expect->send("exit\n");
-    $expect->soft_close();
-
-    return @arpentries;
+  return @arpentries;
 }
 
 1;

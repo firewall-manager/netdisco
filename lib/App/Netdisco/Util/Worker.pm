@@ -19,18 +19,18 @@ our @EXPORT = ('queue_hook');
 # 将钩子事件插入到作业队列中
 sub queue_hook {
   my ($hook, $conf) = @_;
-  my $extra = { action_conf => dclone ($conf->{'with'} || {}),
-                event_data  => dclone (vars->{'hook_data'} || {}) };
+  my $extra = {action_conf => dclone($conf->{'with'} || {}), event_data => dclone(vars->{'hook_data'} || {})};
 
   # 移除to_json无法处理的标量引用
-  visit( $extra->{'event_data'}, sub {
-    my ($key, $valueref) = @_;
-    $$valueref = '' if ref $$valueref eq 'SCALAR';
-  });
+  visit(
+    $extra->{'event_data'},
+    sub {
+      my ($key, $valueref) = @_;
+      $$valueref = '' if ref $$valueref eq 'SCALAR';
+    }
+  );
 
-  jq_insert({
-    action => ('hook::'. lc($conf->{'type'})),
-    extra  => encode_base64( encode('UTF-8', to_json( $extra )), '' ),
+  jq_insert({action => ('hook::' . lc($conf->{'type'})), extra => encode_base64(encode('UTF-8', to_json($extra)), ''),
   });
 
   return 1;

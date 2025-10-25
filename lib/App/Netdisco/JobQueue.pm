@@ -5,18 +5,17 @@ use Dancer qw/:moose :syntax :script/;
 # 设置队列引擎环境变量
 # 优先使用配置中的队列设置，默认为PostgreSQL
 BEGIN {
-  $ENV{ND_QUEUE_ENGINE} ||=
-    setting('workers') ? setting('workers')->{queue} : 'PostgreSQL';
+  $ENV{ND_QUEUE_ENGINE} ||= setting('workers') ? setting('workers')->{queue} : 'PostgreSQL';
 }
 
 # 动态加载指定的队列引擎模块
 use Module::Load ();
-Module::Load::load
-  'App::Netdisco::JobQueue::' . $ENV{ND_QUEUE_ENGINE} => ':all';
+Module::Load::load 'App::Netdisco::JobQueue::' . $ENV{ND_QUEUE_ENGINE} => ':all';
 
 # 设置导出器
 use base 'Exporter';
 our @EXPORT = ();
+
 # 定义可导出的函数列表
 our @EXPORT_OK = qw/
   jq_warm_thrusters
@@ -30,8 +29,8 @@ our @EXPORT_OK = qw/
   jq_userlog
   jq_insert
   jq_delete
-/;
-our %EXPORT_TAGS = ( all => \@EXPORT_OK );
+  /;
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 =head1 NAME
 

@@ -12,6 +12,7 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('device_poe_status');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：设备PoE状态统计
 # 统计每个设备模块的PoE端口数量、功率状态和错误情况
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
@@ -47,48 +48,20 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含设备信息、PoE端口统计和功率信息
 __PACKAGE__->add_columns(
-  'ip' => {
-    data_type => 'inet',
-  },
-  'module' => {
-    data_type => 'integer',
-  },
-  'power' => {
-    data_type => 'integer',
-  },
-  'status' => {
-    data_type => 'text',
-  },
-  'dns' => {
-    data_type => 'text',
-  },
-  'name' => {
-    data_type => 'text',
-  },
-  'model' => {
-    data_type => 'text',
-  },
-  'location' => {
-    data_type => 'text',
-  },
-  'poe_capable_ports' => {
-    data_type => 'bigint',
-  },
-  'poe_powered_ports' => {
-    data_type => 'bigint',
-  },
-  'poe_disabled_ports' => {
-    data_type => 'bigint',
-  },
-  'poe_errored_ports' => {
-    data_type => 'bigint',
-  },
-  'poe_power_committed' => {
-    data_type => 'numeric',
-  },
-  'poe_power_delivering' => {
-    data_type => 'numeric',
-  },
+  'ip'                   => {data_type => 'inet',},
+  'module'               => {data_type => 'integer',},
+  'power'                => {data_type => 'integer',},
+  'status'               => {data_type => 'text',},
+  'dns'                  => {data_type => 'text',},
+  'name'                 => {data_type => 'text',},
+  'model'                => {data_type => 'text',},
+  'location'             => {data_type => 'text',},
+  'poe_capable_ports'    => {data_type => 'bigint',},
+  'poe_powered_ports'    => {data_type => 'bigint',},
+  'poe_disabled_ports'   => {data_type => 'bigint',},
+  'poe_errored_ports'    => {data_type => 'bigint',},
+  'poe_power_committed'  => {data_type => 'numeric',},
+  'poe_power_delivering' => {data_type => 'numeric',},
 );
 
 1;

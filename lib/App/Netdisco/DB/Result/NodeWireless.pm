@@ -11,44 +11,42 @@ use NetAddr::MAC;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("node_wireless");
+
 # 定义表列
 # 包含MAC地址、运行时间、速率、信号强度、数据包统计和SSID信息
 __PACKAGE__->add_columns(
   "mac",
-  { data_type => "macaddr", is_nullable => 0 },
+  {data_type => "macaddr", is_nullable => 0},
   "uptime",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "maxrate",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "txrate",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "sigstrength",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "sigqual",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "rxpkt",
-  { data_type => "bigint", is_nullable => 1 },
+  {data_type => "bigint", is_nullable => 1},
   "txpkt",
-  { data_type => "bigint", is_nullable => 1 },
+  {data_type => "bigint", is_nullable => 1},
   "rxbyte",
-  { data_type => "bigint", is_nullable => 1 },
+  {data_type => "bigint", is_nullable => 1},
   "txbyte",
-  { data_type => "bigint", is_nullable => 1 },
-  "time_last",
-  {
+  {data_type => "bigint", is_nullable => 1},
+  "time_last", {
     data_type     => "timestamp",
     default_value => \"LOCALTIMESTAMP",
     is_nullable   => 1,
-    original      => { default_value => \"LOCALTIMESTAMP" },
+    original      => {default_value => \"LOCALTIMESTAMP"},
   },
   "ssid",
-  { data_type => "text", is_nullable => 0, default_value => '' },
+  {data_type => "text", is_nullable => 0, default_value => ''},
 );
 
 # 设置主键
 __PACKAGE__->set_primary_key("mac", "ssid");
-
-
 
 =head1 RELATIONSHIPS
 
@@ -65,15 +63,13 @@ The JOIN is of type LEFT, in case the OUI table has not been populated.
 
 # 定义关联关系：OUI（已弃用）
 # 返回与此节点匹配的OUI表条目，用于检索公司名称
-__PACKAGE__->belongs_to( oui => 'App::Netdisco::DB::Result::Oui',
-    sub {
-        my $args = shift;
-        return {
-            "$args->{foreign_alias}.oui" =>
-              { '=' => \"substring(cast($args->{self_alias}.mac as varchar) for 8)" }
-        };
-    },
-    { join_type => 'LEFT' }
+__PACKAGE__->belongs_to(
+  oui => 'App::Netdisco::DB::Result::Oui',
+  sub {
+    my $args = shift;
+    return {"$args->{foreign_alias}.oui" => {'=' => \"substring(cast($args->{self_alias}.mac as varchar) for 8)"}};
+  },
+  {join_type => 'LEFT'}
 );
 
 =head2 manufacturer
@@ -87,15 +83,15 @@ The JOIN is of type LEFT, in case the Manufacturer table has not been populated.
 
 # 定义关联关系：制造商
 # 返回与此节点匹配的制造商表条目，用于检索公司名称
-__PACKAGE__->belongs_to( manufacturer => 'App::Netdisco::DB::Result::Manufacturer',
+__PACKAGE__->belongs_to(
+  manufacturer => 'App::Netdisco::DB::Result::Manufacturer',
   sub {
-      my $args = shift;
-      return {
-        "$args->{foreign_alias}.range" => { '@>' =>
-          \qq{('x' || lpad( translate( $args->{self_alias}.mac ::text, ':', ''), 16, '0')) ::bit(64) ::bigint} },
-      };
+    my $args = shift;
+    return {"$args->{foreign_alias}.range" =>
+        {'@>' => \qq{('x' || lpad( translate( $args->{self_alias}.mac ::text, ':', ''), 16, '0')) ::bit(64) ::bigint}},
+    };
   },
-  { join_type => 'LEFT' }
+  {join_type => 'LEFT'}
 );
 
 =head2 node
@@ -109,9 +105,10 @@ database but the relation is being used in C<search()>.
 
 # 定义关联关系：节点
 # 返回与此无线条目匹配的节点表条目
-__PACKAGE__->belongs_to( node => 'App::Netdisco::DB::Result::Node',
-                       { 'foreign.mac' => 'self.mac' },
-                       { join_type => 'LEFT' } );
+__PACKAGE__->belongs_to(
+  node => 'App::Netdisco::DB::Result::Node',
+  {'foreign.mac' => 'self.mac'}, {join_type => 'LEFT'}
+);
 
 =head1 ADDITIONAL COLUMNS
 

@@ -8,19 +8,21 @@ use base 'App::Netdisco::DB::ResultSet';
 use strict;
 use warnings;
 
-__PACKAGE__->load_components(qw/
-  +App::Netdisco::DB::ExplicitLocking
-/);
+__PACKAGE__->load_components(
+  qw/
+    +App::Netdisco::DB::ExplicitLocking
+    /
+);
 
 # 搜索属性配置，按最后时间排序并连接制造商表
 my $search_attr = {
-    order_by => {'-desc' => 'time_last'},
-    '+columns' => [
-      'manufacturer.company',
-      { time_first_stamp => \"to_char(time_first, 'YYYY-MM-DD HH24:MI')" },
-      { time_last_stamp =>  \"to_char(time_last, 'YYYY-MM-DD HH24:MI')" },
-    ],
-    join => 'manufacturer'
+  order_by   => {'-desc' => 'time_last'},
+  '+columns' => [
+    'manufacturer.company',
+    {time_first_stamp => \"to_char(time_first, 'YYYY-MM-DD HH24:MI')"},
+    {time_last_stamp  => \"to_char(time_last, 'YYYY-MM-DD HH24:MI')"},
+  ],
+  join => 'manufacturer'
 };
 
 =head1 with_times
@@ -43,9 +45,7 @@ will add the following additional synthesized columns to the result set:
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs({}, $search_attr)
-    ->search($cond, $attrs);
+  return $rs->search_rs({}, $search_attr)->search($cond, $attrs);
 }
 
 =head1 search_by_ip( \%cond, \%attrs? )
@@ -84,23 +84,20 @@ To limit results only to active IPs, set C<< {active => 1} >> in C<cond>.
 =cut
 
 sub search_by_ip {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "ip address required for search_by_ip\n"
-      if ref {} ne ref $cond or !exists $cond->{ip};
+  die "ip address required for search_by_ip\n" if ref {} ne ref $cond or !exists $cond->{ip};
 
-    # 处理纯文本IP或NetAddr::IP（/32或CIDR）
-    my ($op, $ip) = ('=', delete $cond->{ip});
+  # 处理纯文本IP或NetAddr::IP（/32或CIDR）
+  my ($op, $ip) = ('=', delete $cond->{ip});
 
-    if ('NetAddr::IP::Lite' eq ref $ip and $ip->num > 1) {
-        $op = '<<=';
-        $ip = $ip->cidr;
-    }
-    $cond->{ip} = { $op => $ip };
+  if ('NetAddr::IP::Lite' eq ref $ip and $ip->num > 1) {
+    $op = '<<=';
+    $ip = $ip->cidr;
+  }
+  $cond->{ip} = {$op => $ip};
 
-    return $rs
-      ->search_rs({}, $search_attr)
-      ->search($cond, $attrs);
+  return $rs->search_rs({}, $search_attr)->search($cond, $attrs);
 }
 
 =head1 search_by_name( \%cond, \%attrs? )
@@ -137,16 +134,13 @@ To limit results only to active IPs, set C<< {active => 1} >> in C<cond>.
 =cut
 
 sub search_by_name {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "nbname field required for search_by_name\n"
-      if ref {} ne ref $cond or !exists $cond->{nbname};
+  die "nbname field required for search_by_name\n" if ref {} ne ref $cond or !exists $cond->{nbname};
 
-    $cond->{nbname} = { '-ilike' => delete $cond->{nbname} };
+  $cond->{nbname} = {'-ilike' => delete $cond->{nbname}};
 
-    return $rs
-      ->search_rs({}, $search_attr)
-      ->search($cond, $attrs);
+  return $rs->search_rs({}, $search_attr)->search($cond, $attrs);
 }
 
 =head1 search_by_mac( \%cond, \%attrs? )
@@ -183,14 +177,11 @@ To limit results only to active IPs, set C<< {active => 1} >> in C<cond>.
 =cut
 
 sub search_by_mac {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "mac address required for search_by_mac\n"
-      if ref {} ne ref $cond or !exists $cond->{mac};
+  die "mac address required for search_by_mac\n" if ref {} ne ref $cond or !exists $cond->{mac};
 
-    return $rs
-      ->search_rs({}, $search_attr)
-      ->search($cond, $attrs);
+  return $rs->search_rs({}, $search_attr)->search($cond, $attrs);
 }
 
 1;

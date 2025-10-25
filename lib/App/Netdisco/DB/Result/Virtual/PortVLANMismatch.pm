@@ -11,6 +11,7 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('port_vlan_mismatch');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：端口VLAN不匹配检测
 # 检测连接端口之间的VLAN配置不匹配，包括原生VLAN和标记VLAN
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
@@ -100,19 +101,19 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含连接两端设备的IP、DNS、端口、VLAN信息和不匹配分析
 __PACKAGE__->add_columns(
-  'left_ip'         => { data_type => 'text' },
-  'left_dns'        => { data_type => 'text' },
-  'left_port'       => { data_type => 'text' },
-  'left_port_descr' => { data_type => 'text' },
-  'left_vlans'      => { data_type => 'text[]' },
-  'only_left_vlans' => { data_type => 'text[]' },
+  'left_ip'         => {data_type => 'text'},
+  'left_dns'        => {data_type => 'text'},
+  'left_port'       => {data_type => 'text'},
+  'left_port_descr' => {data_type => 'text'},
+  'left_vlans'      => {data_type => 'text[]'},
+  'only_left_vlans' => {data_type => 'text[]'},
 
-  'right_ip'         => { data_type => 'text' },
-  'right_dns'        => { data_type => 'text' },
-  'right_port'       => { data_type => 'text' },
-  'right_port_descr' => { data_type => 'text' },
-  'right_vlans'      => { data_type => 'text[]' },
-  'only_right_vlans' => { data_type => 'text[]' },
+  'right_ip'         => {data_type => 'text'},
+  'right_dns'        => {data_type => 'text'},
+  'right_port'       => {data_type => 'text'},
+  'right_port_descr' => {data_type => 'text'},
+  'right_vlans'      => {data_type => 'text[]'},
+  'only_right_vlans' => {data_type => 'text[]'},
 );
 
 1;

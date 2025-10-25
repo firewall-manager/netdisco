@@ -17,21 +17,21 @@ sub separator {'.[]'}
 # 分割参数名称
 # 将参数名称分割为段，支持数组索引语法
 sub split_name {
-    my $class = shift;
-    my $name  = shift;
-    $name =~ /^ ([^\[\]\.]+) /xg;
-    my @segs = $1;
-    push @segs, ( $name =~ / \G (?: \[ ([^\[\]\.]+) \] ) /xg );
-    return @segs;
+  my $class = shift;
+  my $name  = shift;
+  $name =~ /^ ([^\[\]\.]+) /xg;
+  my @segs = $1;
+  push @segs, ($name =~ / \G (?: \[ ([^\[\]\.]+) \] ) /xg);
+  return @segs;
 }
 
 # 连接参数名称
 # 将参数段连接为完整的参数名称
 sub join_name {
-    my $class = shift;
-    my ( $first, @segs ) = @_;
-    return $first unless @segs;
-    return "$first\[" . join( '][', @segs ) . "]";
+  my $class = shift;
+  my ($first, @segs) = @_;
+  return $first unless @segs;
+  return "$first\[" . join('][', @segs) . "]";
 }
 
 1;

@@ -11,27 +11,22 @@ use List::MoreUtils ();
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device_skip");
+
 # 定义表列
 # 包含后端、设备、动作集合、延迟次数和最后延迟时间
 __PACKAGE__->add_columns(
-  "backend",
-  { data_type => "text", is_nullable => 0 },
-  "device",
-  { data_type => "inet", is_nullable => 0 },
-  "actionset",
-  { data_type => "text[]", is_nullable => 1, default_value => \"'{}'::text[]" },
-  "deferrals",
-  { data_type => "integer", is_nullable => 1, default_value => '0' },
-  "last_defer",
-  { data_type => "timestamp", is_nullable => 1 },
+  "backend",    {data_type => "text",      is_nullable => 0},
+  "device",     {data_type => "inet",      is_nullable => 0},
+  "actionset",  {data_type => "text[]",    is_nullable => 1, default_value => \"'{}'::text[]"},
+  "deferrals",  {data_type => "integer",   is_nullable => 1, default_value => '0'},
+  "last_defer", {data_type => "timestamp", is_nullable => 1},
 );
 
 # 设置主键
 __PACKAGE__->set_primary_key("backend", "device");
 
 # 添加唯一约束
-__PACKAGE__->add_unique_constraint(
-  device_skip_pkey => [qw/backend device/]);
+__PACKAGE__->add_unique_constraint(device_skip_pkey => [qw/backend device/]);
 
 =head1 METHODS
 
@@ -47,10 +42,7 @@ There is a race in the update, but this is not worrying for now.
 sub increment_deferrals {
   my $row = shift;
   return unless $row->in_storage;
-  return $row->update({
-    deferrals => (($row->deferrals || 0) + 1),
-    last_defer => \'LOCALTIMESTAMP',
-  });
+  return $row->update({deferrals => (($row->deferrals || 0) + 1), last_defer => \'LOCALTIMESTAMP',});
 }
 
 =head2 add_to_actionset
@@ -63,9 +55,7 @@ sub add_to_actionset {
   my ($row, @badactions) = @_;
   return unless $row->in_storage;
   return unless scalar @badactions;
-  return $row->update({ actionset =>
-    [ sort (List::MoreUtils::uniq( @{ $row->actionset || [] }, @badactions )) ]
-  });
+  return $row->update({actionset => [sort (List::MoreUtils::uniq(@{$row->actionset || []}, @badactions))]});
 }
 
 1;

@@ -42,33 +42,34 @@ Returns a list of hashrefs in the format C<{ mac =E<gt> MACADDR, ip =E<gt> IPADD
 # 该方法用于连接F5 BigIP设备并获取其ARP表信息
 # BigIP设备有专有的IP栈，不会在标准SNMP ipNetToMediaTable中显示
 sub arpnip {
-    my ($self, $hostlabel, $ssh, $args) = @_;
+  my ($self, $hostlabel, $ssh, $args) = @_;
 
-    debug "$hostlabel $$ arpnip()";
+  debug "$hostlabel $$ arpnip()";
 
-    # 首先尝试使用CLI命令
-    my @data = $ssh->capture("show net arp");
-    # 如果CLI命令失败，则使用tmsh命令
-    unless (@data){
-        @data = $ssh->capture('tmsh -c "show net arp"');
+  # 首先尝试使用CLI命令
+  my @data = $ssh->capture("show net arp");
+
+  # 如果CLI命令失败，则使用tmsh命令
+  unless (@data) {
+    @data = $ssh->capture('tmsh -c "show net arp"');
+  }
+
+  chomp @data;    # 移除每行末尾的换行符
+  my @arpentries;
+
+  # 解析ARP输出，查找已解析的条目
+  foreach (@data) {
+    if (m/\d{1,3}\..*resolved/) {
+      my (undef, $ip, $mac) = split(/\s+/);
+
+      # IP地址可能包含VLAN标识符，如172.19.254.143%10，需要清理
+      $ip =~ s/%\d+//;
+
+      push(@arpentries, {mac => $mac, ip => $ip});
     }
+  }
 
-    chomp @data;  # 移除每行末尾的换行符
-    my @arpentries;
-
-    # 解析ARP输出，查找已解析的条目
-    foreach (@data){
-        if (m/\d{1,3}\..*resolved/){
-            my (undef, $ip, $mac) = split(/\s+/);
-
-            # IP地址可能包含VLAN标识符，如172.19.254.143%10，需要清理
-            $ip =~ s/%\d+//;
-
-            push(@arpentries, {mac => $mac, ip => $ip});
-        }
-    }
-
-    return @arpentries;
+  return @arpentries;
 }
 
 1;

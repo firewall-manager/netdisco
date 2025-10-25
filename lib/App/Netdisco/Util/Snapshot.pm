@@ -9,7 +9,7 @@ use Dancer::Plugin::DBIC 'schema';
 use App::Netdisco::Util::SNMP qw/get_mibdirs sortable_oid/;
 
 use File::Spec::Functions qw/catdir catfile/;
-use MIME::Base64 qw/encode_base64 decode_base64/;
+use MIME::Base64          qw/encode_base64 decode_base64/;
 use File::Slurper 'read_lines';
 use Storable 'dclone';
 use Scalar::Util 'blessed';
@@ -17,13 +17,13 @@ use String::Util 'trim';
 use SNMP::Info;
 
 use base 'Exporter';
-our @EXPORT = ();
+our @EXPORT    = ();
 our @EXPORT_OK = qw/
   load_cache_for_device
   add_snmpinfo_aliases
   make_snmpwalk_browsable
   fixup_browser_from_aliases
-/;
+  /;
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 =head1 NAME
@@ -52,82 +52,82 @@ sub load_cache_for_device {
   my $device = shift;
   return {} unless ($device->is_pseudo or not $device->in_storage);
 
-  my $pseudo_cache = catfile( catdir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'logs', 'snapshots'), $device->ip );
-  my $loadmibs = schema('netdisco')->resultset('SNMPObject')->count;
+  my $pseudo_cache = catfile(catdir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'logs', 'snapshots'), $device->ip);
+  my $loadmibs     = schema('netdisco')->resultset('SNMPObject')->count;
 
   # 检查快照文件但无MIB数据的情况
   if (-f $pseudo_cache and not $loadmibs) {
-      warning "device snapshot exists ($pseudo_cache) but no MIB data available.";
-      warning 'skipping offline cache load - run a "loadmibs" job if you want this!';
-      return {};
+    warning "device snapshot exists ($pseudo_cache) but no MIB data available.";
+    warning 'skipping offline cache load - run a "loadmibs" job if you want this!';
+    return {};
   }
 
   my %oids = ();
 
   # 理想情况下我们在数据库中有缓存
   if ($device->is_pseudo
-      and not $device->oids->search({ -or => [
-        -bool => \q{ array_length(oid_parts, 1) IS NULL },
-        -bool => \q{ jsonb_typeof(value) != 'array' }, ] })->count) {
+    and not $device->oids->search({
+      -or => [-bool => \q{ array_length(oid_parts, 1) IS NULL }, -bool => \q{ jsonb_typeof(value) != 'array' },]
+    })->count) {
 
-      my @rows = $device->oids->search({},{
-          join => 'oid_fields',
-          columns => [qw/oid value/],
-          select => [qw/oid_fields.mib oid_fields.leaf/], as => [qw/mib leaf/],
-      })->hri->all;
+    my @rows = $device->oids->search(
+      {},
+      {
+        join    => 'oid_fields',
+        columns => [qw/oid value/],
+        select  => [qw/oid_fields.mib oid_fields.leaf/],
+        as      => [qw/mib leaf/],
+      }
+    )->hri->all;
 
-      $oids{$_->{oid}} = {
-          %{ $_ },
-          value => (@{ from_json($_->{value}) })[0],
-      } for @rows;
+    $oids{$_->{oid}} = {%{$_}, value => (@{from_json($_->{value})})[0],} for @rows;
   }
+
   # 或者我们在磁盘上有snmpwalk文件
   elsif (-f $pseudo_cache and not $device->in_storage) {
-      debug sprintf "importing snmpwalk from disk ($pseudo_cache)";
+    debug sprintf "importing snmpwalk from disk ($pseudo_cache)";
 
-      my @lines = read_lines($pseudo_cache);
-      my %store = ();
+    my @lines = read_lines($pseudo_cache);
+    my %store = ();
 
-      # 有时我们得到的是iso.而不是.1.的快照
-      if ($lines[0] !~ m/^.\d/) {
-          warning 'snapshot file rejected - has translated names/values instead of numeric';
-          return {};
-      }
+    # 有时我们得到的是iso.而不是.1.的快照
+    if ($lines[0] !~ m/^.\d/) {
+      warning 'snapshot file rejected - has translated names/values instead of numeric';
+      return {};
+    }
 
-      # 解析snmpwalk输出，看起来像
-      # .1.0.8802.1.1.2.1.1.1.0 = INTEGER: 30
-      foreach my $line (@lines) {
-          my ($oid, $type, $value) = $line =~ m/^(\S+)\s+=\s+(?:([^:]+):\s+)?(.+)$/;
-          next unless $oid and $value;
+    # 解析snmpwalk输出，看起来像
+    # .1.0.8802.1.1.2.1.1.1.0 = INTEGER: 30
+    foreach my $line (@lines) {
+      my ($oid, $type, $value) = $line =~ m/^(\S+)\s+=\s+(?:([^:]+):\s+)?(.+)$/;
+      next unless $oid and $value;
 
-          # 空字符串使捕获变得混乱
-          $value = '' if $value =~ m/^[^:]+: ?$/;
+      # 空字符串使捕获变得混乱
+      $value = '' if $value =~ m/^[^:]+: ?$/;
 
-          # 从字符串中移除引号
-          $value =~ s/^"//;
-          $value =~ s/"$//;
+      # 从字符串中移除引号
+      $value =~ s/^"//;
+      $value =~ s/"$//;
 
-          $store{$oid} = {
-            oid       => $oid,
-            oid_parts => [], # 暂时不需要
-            value     => to_json([ ((defined $type and $type eq 'BASE64') ? $value
-                                                                          : encode_base64(trim($value), '')) ]),
-          };
-      }
+      $store{$oid} = {
+        oid       => $oid,
+        oid_parts => [],     # 暂时不需要
+        value     => to_json([((defined $type and $type eq 'BASE64') ? $value : encode_base64(trim($value), ''))]),
+      };
+    }
 
-      # 放入数据库（临时）
-      # 这必须在这里发生，不能重构到make_snmpwalk_browsable中
-      # 因为make_snmpwalk_browsable也从快照作业中调用
-      # 之后都会被清理
-      schema('netdisco')->txn_do(sub {
-        $device->oids->delete;
-        $device->oids->populate([values %store]);
-      });
+    # 放入数据库（临时）
+    # 这必须在这里发生，不能重构到make_snmpwalk_browsable中
+    # 因为make_snmpwalk_browsable也从快照作业中调用
+    # 之后都会被清理
+    schema('netdisco')->txn_do(sub {
+      $device->oids->delete;
+      $device->oids->populate([values %store]);
+    });
 
-      # 从数据库中获取，作为与相关snmp_object的表（用于枚举）
-      %oids = make_snmpwalk_browsable($device);
-      $oids{$_}->{value} = (@{ from_json( $oids{$_}->{value} ) })[0]
-        for keys %oids;
+    # 从数据库中获取，作为与相关snmp_object的表（用于枚举）
+    %oids = make_snmpwalk_browsable($device);
+    $oids{$_}->{value} = (@{from_json($oids{$_}->{value})})[0] for keys %oids;
   }
 
   # 将缓存膨胀为SNMP::Info缓存实例
@@ -145,64 +145,64 @@ table rows to hashref, enum values translated, and oid_parts filled.
 # 获取设备的device_browser行并重写它们以转换表行为哈希引用，翻译枚举值，并填充oid_parts
 sub make_snmpwalk_browsable {
   my $device = shift;
-  my %oids = ();
+  my %oids   = ();
 
   # 为了使device_browser到snmp_object的关系对表工作
   # 我们需要临时用潜在的表oid填充device_browser
   # 之后都会被清理
-  my %value_oids = map {($_ => 1)} $device->oids->get_column('oid')->all;
+  my %value_oids = map { ($_ => 1) } $device->oids->get_column('oid')->all;
   my %table_oids = ();
 
   foreach my $orig_oid (keys %value_oids) {
-      (my $oid = $orig_oid) =~ s/\.\d+$//;
-      my $new_oid = '';
+    (my $oid = $orig_oid) =~ s/\.\d+$//;
+    my $new_oid = '';
 
-      while (length($oid)) {
-          $oid =~ s/^(\.\d+)//;
-          $new_oid .= $1;
-          $table_oids{$new_oid} = {oid => $new_oid, oid_parts => []}
-            unless exists $value_oids{$new_oid};
-      }
+    while (length($oid)) {
+      $oid =~ s/^(\.\d+)//;
+      $new_oid .= $1;
+      $table_oids{$new_oid} = {oid => $new_oid, oid_parts => []} unless exists $value_oids{$new_oid};
+    }
   }
 
   $device->oids->populate([values %table_oids]);
-  my @rows = $device->oids->search({},{
-      join => 'oid_fields',
+  my @rows = $device->oids->search(
+    {},
+    {
+      join    => 'oid_fields',
       columns => [qw/oid value/],
-      select => [qw/oid_fields.mib oid_fields.leaf oid_fields.enum/], as => [qw/mib leaf enum/],
-  })->hri->all;
+      select  => [qw/oid_fields.mib oid_fields.leaf oid_fields.enum/],
+      as      => [qw/mib leaf enum/],
+    }
+  )->hri->all;
 
-  $oids{$_->{oid}} = {
-      %{ $_ },
-      value => (defined $_->{value} ? decode_base64( (@{ from_json($_->{value}) })[0] ) : q{}),
-  } for grep {$_->{leaf} or length( (@{ from_json($_->{value}) })[0] )}
-             @rows;
+  $oids{$_->{oid}} = {%{$_}, value => (defined $_->{value} ? decode_base64((@{from_json($_->{value})})[0]) : q{}),}
+    for grep { $_->{leaf} or length((@{from_json($_->{value})})[0]) } @rows;
 
   %oids = collapse_snmp_tables(%oids);
   %oids = resolve_enums(%oids);
-  
+
   # walk leaves and table leaves to b64 encode again
   # build the oid_parts list
   foreach my $k (keys %oids) {
-      my $value = (defined $oids{$k}->{value} ? $oids{$k}->{value} : q{});
+    my $value = (defined $oids{$k}->{value} ? $oids{$k}->{value} : q{});
 
-      # always a JSON array of single element
-      if (ref {} eq ref $value) {
-          $oids{$k}->{value} = to_json([{ map {($_ => encode_base64(trim($value->{$_}), ''))} keys %{ $value } }]);
-      }
-      else {
-          $oids{$k}->{value} = to_json([encode_base64(trim($value), '')]);
-      }
+    # always a JSON array of single element
+    if (ref {} eq ref $value) {
+      $oids{$k}->{value} = to_json([{map { ($_ => encode_base64(trim($value->{$_}), '')) } keys %{$value}}]);
+    }
+    else {
+      $oids{$k}->{value} = to_json([encode_base64(trim($value), '')]);
+    }
 
-      $oids{$k}->{oid_parts} = [ grep {length} (split m/\./, $oids{$k}->{oid}) ];
+    $oids{$k}->{oid_parts} = [grep {length} (split m/\./, $oids{$k}->{oid})];
   }
 
   # store the device cache for real, now
   schema('netdisco')->txn_do(sub {
     $device->oids->delete;
-    $device->oids->populate([map {
-        { oid => $_->{oid}, oid_parts => $_->{oid_parts}, value => $_->{value} }
-    } values %oids]);
+    $device->oids->populate([
+      map { {oid => $_->{oid}, oid_parts => $_->{oid_parts}, value => $_->{value}} } values %oids
+    ]);
     debug sprintf 'replaced %d browsable oids in db', scalar keys %oids;
   });
 
@@ -220,50 +220,51 @@ sub collapse_snmp_tables {
   my %oids = @_;
   return () unless scalar keys %oids;
 
-  OID: foreach my $orig_oid (sort {sortable_oid($a) cmp sortable_oid($b)} keys %oids) {
-      my $oid = $orig_oid;
-      my $idx = '';
+OID: foreach my $orig_oid (sort { sortable_oid($a) cmp sortable_oid($b) } keys %oids) {
+    my $oid = $orig_oid;
+    my $idx = '';
 
-      # walk down the oid until we hit a known leaf
-      while (length($oid) and !defined $oids{$oid}->{leaf}) {
-          $oid =~ s/\.(\d+)$//;
-          $idx = (length $idx ? "${1}.${idx}" : $1);
-      }
+    # walk down the oid until we hit a known leaf
+    while (length($oid) and !defined $oids{$oid}->{leaf}) {
+      $oid =~ s/\.(\d+)$//;
+      $idx = (length $idx ? "${1}.${idx}" : $1);
+    }
 
-      if (0 == length($oid)) {
-          # we never found a leaf, delete it and move on
-          delete $oids{$orig_oid};
-          next OID;
-      }
+    if (0 == length($oid)) {
 
-      $idx ||= '.0';
-      $idx =~ s/^\.//;
+      # we never found a leaf, delete it and move on
+      delete $oids{$orig_oid};
+      next OID;
+    }
 
-      if ($idx eq '0') {
-          if ($oid eq $orig_oid and $oid =~ m/\.0$/) {
-              # generally considered to be a bad idea, sometimes the OID
-              # is standardised with .0 e.g. .1.3.6.1.2.1.1.3.0 sysUpTimeInstance
-              # - do nothing as the value is already OK
-          }
-          else {
-              $oids{$oid}->{value} = $oids{$orig_oid}->{value};
-          }
+    $idx ||= '.0';
+    $idx =~ s/^\.//;
+
+    if ($idx eq '0') {
+      if ($oid eq $orig_oid and $oid =~ m/\.0$/) {
+
+        # generally considered to be a bad idea, sometimes the OID
+        # is standardised with .0 e.g. .1.3.6.1.2.1.1.3.0 sysUpTimeInstance
+        # - do nothing as the value is already OK
       }
       else {
-          # on rare occasions a vendor returns .0 and .something
-          # this will overwrite the .0 (requires the sorting above)
-          $oids{$oid}->{value} = {} if ref {} ne ref $oids{$oid}->{value};
-          $oids{$oid}->{value}->{$idx} = $oids{$orig_oid}->{value};
+        $oids{$oid}->{value} = $oids{$orig_oid}->{value};
       }
+    }
+    else {
+      # on rare occasions a vendor returns .0 and .something
+      # this will overwrite the .0 (requires the sorting above)
+      $oids{$oid}->{value} = {} if ref {} ne ref $oids{$oid}->{value};
+      $oids{$oid}->{value}->{$idx} = $oids{$orig_oid}->{value};
+    }
 
-      delete $oids{$orig_oid} if $orig_oid ne $oid;
+    delete $oids{$orig_oid} if $orig_oid ne $oid;
   }
 
   # remove temporary entries added to resolve table names
   delete $oids{$_}
-    for grep {!defined $oids{$_}->{value}
-              or (ref q{} eq ref $oids{$_}->{value} and $oids{$_}->{value} eq '')}
-             keys %oids;
+    for grep { !defined $oids{$_}->{value} or (ref q{} eq ref $oids{$_}->{value} and $oids{$_}->{value} eq '') }
+    keys %oids;
 
   return %oids;
 }
@@ -280,22 +281,19 @@ sub resolve_enums {
   return () unless scalar keys %oids;
 
   foreach my $oid (keys %oids) {
-      next unless $oids{$oid}->{enum};
+    next unless $oids{$oid}->{enum};
 
-      my $value = $oids{$oid}->{value};
-      my %emap = map { reverse split m/\(/ }
-                 map { s/\)//; $_ }
-                     @{ $oids{$oid}->{enum} };
+    my $value = $oids{$oid}->{value};
+    my %emap  = map { reverse split m/\(/ } map { s/\)//; $_ } @{$oids{$oid}->{enum}};
 
-      if (ref q{} eq ref $value) {
-          $oids{$oid}->{value} = $emap{$value} if exists $emap{$value};
+    if (ref q{} eq ref $value) {
+      $oids{$oid}->{value} = $emap{$value} if exists $emap{$value};
+    }
+    elsif (ref {} eq ref $value) {
+      foreach my $k (keys %$value) {
+        $oids{$oid}->{value}->{$k} = $emap{$value->{$k}} if exists $emap{$value->{$k}};
       }
-      elsif (ref {} eq ref $value) {
-          foreach my $k (keys %$value) {
-              $oids{$oid}->{value}->{$k} = $emap{ $value->{$k} }
-                if exists $emap{ $value->{$k} };
-          }
-      }
+    }
   }
 
   return %oids;
@@ -314,36 +312,35 @@ sub snmpwalk_to_snmpinfo_cache {
 
   # unpack the values
   foreach my $oid (keys %walk) {
-      my $value = $walk{$oid}->{value};
+    my $value = $walk{$oid}->{value};
 
-      if (ref q{} eq ref $value) {
-          $walk{$oid}->{value} = decode_base64($walk{$oid}->{value});
+    if (ref q{} eq ref $value) {
+      $walk{$oid}->{value} = decode_base64($walk{$oid}->{value});
+    }
+    elsif (ref {} eq ref $value) {
+      foreach my $k (keys %$value) {
+        $walk{$oid}->{value}->{$k} = decode_base64($walk{$oid}->{value}->{$k});
       }
-      elsif (ref {} eq ref $value) {
-          foreach my $k (keys %$value) {
-              $walk{$oid}->{value}->{$k}
-                = decode_base64($walk{$oid}->{value}->{$k});
-          }
-      }
+    }
   }
 
   my $info = SNMP::Info->new({
-    Offline => 1,
-    Cache => {},
-    Session => {},
-    MibDirs => [ get_mibdirs() ],
-    AutoSpecify => 0,
+    Offline           => 1,
+    Cache             => {},
+    Session           => {},
+    MibDirs           => [get_mibdirs()],
+    AutoSpecify       => 0,
     IgnoreNetSNMPConf => 1,
-    Debug => ($ENV{INFO_TRACE} || 0),
-    DebugSNMP => ($ENV{SNMP_TRACE} || 0),
+    Debug             => ($ENV{INFO_TRACE} || 0),
+    DebugSNMP         => ($ENV{SNMP_TRACE} || 0),
   });
 
   foreach my $oid (keys %walk) {
-      my $qleaf = $walk{$oid}->{mib} . '::' . $walk{$oid}->{leaf};
-      (my $snmpqleaf = $qleaf) =~ s/[-:]/_/g;
+    my $qleaf = $walk{$oid}->{mib} . '::' . $walk{$oid}->{leaf};
+    (my $snmpqleaf = $qleaf) =~ s/[-:]/_/g;
 
-      $info->_cache($walk{$oid}->{leaf}, $walk{$oid}->{value});
-      $info->_cache($snmpqleaf, $walk{$oid}->{value});
+    $info->_cache($walk{$oid}->{leaf}, $walk{$oid}->{value});
+    $info->_cache($snmpqleaf,          $walk{$oid}->{value});
   }
 
   # debug sprintf "snmpwalk_to_snmpinfo: cache size: %d", scalar keys %{ $info->cache };
@@ -361,28 +358,28 @@ sub add_snmpinfo_aliases {
   my $info = shift or return {};
 
   if (not blessed $info) {
-      $info = SNMP::Info->new({
-        Offline => 1,
-        Cache => $info,
-        Session => {},
-        MibDirs => [ get_mibdirs() ],
-        AutoSpecify => 0,
-        IgnoreNetSNMPConf => 1,
-        Debug => ($ENV{INFO_TRACE} || 0),
-        DebugSNMP => ($ENV{SNMP_TRACE} || 0),
-      });
+    $info = SNMP::Info->new({
+      Offline           => 1,
+      Cache             => $info,
+      Session           => {},
+      MibDirs           => [get_mibdirs()],
+      AutoSpecify       => 0,
+      IgnoreNetSNMPConf => 1,
+      Debug             => ($ENV{INFO_TRACE} || 0),
+      DebugSNMP         => ($ENV{SNMP_TRACE} || 0),
+    });
   }
 
-  my %globals = %{ $info->globals };
-  my %funcs   = %{ $info->funcs };
+  my %globals = %{$info->globals};
+  my %funcs   = %{$info->funcs};
 
   while (my ($alias, $leaf) = each %globals) {
-      next if $leaf =~ m/\.\d+$/;
-      $info->_cache($alias, $info->$leaf) if $info->$leaf;
+    next                                if $leaf =~ m/\.\d+$/;
+    $info->_cache($alias, $info->$leaf) if $info->$leaf;
   }
 
   while (my ($alias, $leaf) = each %funcs) {
-      $info->_cache($alias, dclone $info->$leaf) if ref q{} ne ref $info->$leaf;
+    $info->_cache($alias, dclone $info->$leaf) if ref q{} ne ref $info->$leaf;
   }
 
   # SNMP::Info::Layer3 has some weird structures we can try to fix here
@@ -402,23 +399,24 @@ sub add_snmpinfo_aliases {
   );
 
   foreach my $prop (keys %propfix) {
-      my $val = $info->$prop;
-      $val = [values %$val]->[0] if ref $val eq 'HASH';
-      $info->_cache($propfix{$prop}, $val);
+    my $val = $info->$prop;
+    $val = [values %$val]->[0] if ref $val eq 'HASH';
+    $info->_cache($propfix{$prop}, $val);
   }
 
   # netdisco will try uptime or hrSystemUptime or sysUptime (but not sysUptimeInstance)
   if (defined $info->sysUpTimeInstance) {
-      my $uptime = (ref {} eq ref $info->sysUpTimeInstance)
-        ? ($info->sysUpTimeInstance->{0} || $info->sysUpTimeInstance->{''})
-        : $info->sysUpTimeInstance;
-      
-      if (!defined $info->uptime) {
-          $info->_cache('uptime', $uptime);
-      }
-      if (!defined $info->sysUpTime) {
-          $info->_cache('sysUpTime', $uptime);
-      }
+    my $uptime
+      = (ref {} eq ref $info->sysUpTimeInstance)
+      ? ($info->sysUpTimeInstance->{0} || $info->sysUpTimeInstance->{''})
+      : $info->sysUpTimeInstance;
+
+    if (!defined $info->uptime) {
+      $info->_cache('uptime', $uptime);
+    }
+    if (!defined $info->sysUpTime) {
+      $info->_cache('sysUpTime', $uptime);
+    }
   }
 
   # now for any other SNMP::Info method in GLOBALS or FUNCS which Netdisco
@@ -446,13 +444,12 @@ data they can happen here.
 
 sub fixup_browser_from_aliases {
   my $device = shift or return;
-  my $info = shift or return;
+  my $info   = shift or return;
 
   my $e_type = $info->e_type;
   if (scalar keys %$e_type) {
-      my $row = $device->oids->find({ oid => '.1.3.6.1.2.1.47.1.1.1.1.3' });
-      $row->update({ value =>
-        to_json([{ map {($_ => encode_base64(trim($e_type->{$_}), ''))} keys %{ $e_type } }]) });
+    my $row = $device->oids->find({oid => '.1.3.6.1.2.1.47.1.1.1.1.3'});
+    $row->update({value => to_json([{map { ($_ => encode_base64(trim($e_type->{$_}), '')) } keys %{$e_type}}])});
   }
 }
 

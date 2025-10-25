@@ -9,13 +9,12 @@ use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("snmp_filter");
+
 # 定义表列
 # 包含叶子节点和子名称信息
 __PACKAGE__->add_columns(
-  "leaf",
-  { data_type => "text", is_nullable => 0 },
-  "subname",
-  { data_type => "text", is_nullable => 0 },
+  "leaf",    {data_type => "text", is_nullable => 0},
+  "subname", {data_type => "text", is_nullable => 0},
 );
 
 # 设置主键

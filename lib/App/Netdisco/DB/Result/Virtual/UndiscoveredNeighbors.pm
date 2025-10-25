@@ -13,6 +13,7 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('undiscovered_neighbors');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：未发现邻居
 # 查找可发现但尚未发现的网络邻居设备
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
@@ -50,38 +51,22 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含设备信息、端口信息、远程设备信息和发现状态
 __PACKAGE__->add_columns(
-  "ip",
-  { data_type => "inet", is_nullable => 0 },
-  "name",
-  { data_type => "text", is_nullable => 1 },
-  "dns",
-  { data_type => "text", is_nullable => 1 },
-  "port",
-  { data_type => "text", is_nullable => 0 },
-  "port_description",
-  { data_type => "text", is_nullable => 0 },
-  "remote_ip",
-  { data_type => "inet", is_nullable => 1 },
-  "remote_port",
-  { data_type => "text", is_nullable => 1 },
-  "remote_type",
-  { data_type => "text", is_nullable => 1 },
-  "remote_id",
-  { data_type => "text", is_nullable => 1 },
-  "remote_is_discoverable",
-  { data_type => "boolean", is_nullable => 1 },
-  "remote_is_wap",
-  { data_type => "boolean", is_nullable => 1 },
-  "remote_is_phone",
-  { data_type => "boolean", is_nullable => 1 },
-  "remote_dns",
-  { data_type => "text", is_nullable => 1 },
-  "comment",
-  { data_type => "text", is_nullable => 1 },
-  "log",
-  { data_type => "text", is_nullable => 1 },
-  "finished",
-  { data_type => "timestamp", is_nullable => 1 },
+  "ip",                     {data_type => "inet",      is_nullable => 0},
+  "name",                   {data_type => "text",      is_nullable => 1},
+  "dns",                    {data_type => "text",      is_nullable => 1},
+  "port",                   {data_type => "text",      is_nullable => 0},
+  "port_description",       {data_type => "text",      is_nullable => 0},
+  "remote_ip",              {data_type => "inet",      is_nullable => 1},
+  "remote_port",            {data_type => "text",      is_nullable => 1},
+  "remote_type",            {data_type => "text",      is_nullable => 1},
+  "remote_id",              {data_type => "text",      is_nullable => 1},
+  "remote_is_discoverable", {data_type => "boolean",   is_nullable => 1},
+  "remote_is_wap",          {data_type => "boolean",   is_nullable => 1},
+  "remote_is_phone",        {data_type => "boolean",   is_nullable => 1},
+  "remote_dns",             {data_type => "text",      is_nullable => 1},
+  "comment",                {data_type => "text",      is_nullable => 1},
+  "log",                    {data_type => "text",      is_nullable => 1},
+  "finished",               {data_type => "timestamp", is_nullable => 1},
 );
 
 1;

@@ -22,11 +22,12 @@ sub parse_max_workers {
 
   # 处理auto模式，支持数学运算
   if ($max =~ /^auto(?:$|\s*([\-\+\/\*])\s*(.+)$)/i) {
-      my $ncpu = MCE::Util::get_ncpu() || 0;
+    my $ncpu = MCE::Util::get_ncpu() || 0;
 
-      if ($1 and $2) {
-          local $@; $max = eval "int($ncpu $1 $2 + 0.5)";
-      }
+    if ($1 and $2) {
+      local $@;
+      $max = eval "int($ncpu $1 $2 + 0.5)";
+    }
   }
 
   return $max || 0;

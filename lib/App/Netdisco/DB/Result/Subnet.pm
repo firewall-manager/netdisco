@@ -9,24 +9,23 @@ use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("subnets");
+
 # 定义表列
 # 包含网络CIDR、创建时间和最后发现时间
 __PACKAGE__->add_columns(
   "net",
-  { data_type => "cidr", is_nullable => 0 },
-  "creation",
-  {
+  {data_type => "cidr", is_nullable => 0},
+  "creation", {
     data_type     => "timestamp",
     default_value => \"LOCALTIMESTAMP",
     is_nullable   => 1,
-    original      => { default_value => \"LOCALTIMESTAMP" },
+    original      => {default_value => \"LOCALTIMESTAMP"},
   },
-  "last_discover",
-  {
+  "last_discover", {
     data_type     => "timestamp",
     default_value => \"LOCALTIMESTAMP",
     is_nullable   => 1,
-    original      => { default_value => \"LOCALTIMESTAMP" },
+    original      => {default_value => \"LOCALTIMESTAMP"},
   },
 );
 

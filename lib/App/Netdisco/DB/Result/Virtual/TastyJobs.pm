@@ -12,9 +12,11 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('tasty_jobs');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：美味任务队列
 # 提供优先级排序的任务队列，支持设备跳过和延迟机制
-__PACKAGE__->result_source_instance->view_definition(<<ENDSQL
+__PACKAGE__->result_source_instance->view_definition(
+  <<ENDSQL
   WITH my_jobs AS
     (SELECT admin.* FROM admin
        LEFT OUTER JOIN device_skip ds
@@ -54,36 +56,21 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含任务的所有信息和优先级
 __PACKAGE__->add_columns(
-  "job",
-  { data_type => "integer", is_nullable => 0, },
-  "entered",
-  { data_type => "timestamp", is_nullable => 1 },
-  "started",
-  { data_type => "timestamp", is_nullable => 1 },
-  "finished",
-  { data_type => "timestamp", is_nullable => 1 },
-  "device",
-  { data_type => "inet", is_nullable => 1 },
-  "port",
-  { data_type => "text", is_nullable => 1 },
-  "action",
-  { data_type => "text", is_nullable => 1 },
-  "subaction",
-  { data_type => "text", is_nullable => 1 },
-  "status",
-  { data_type => "text", is_nullable => 1 },
-  "username",
-  { data_type => "text", is_nullable => 1 },
-  "userip",
-  { data_type => "inet", is_nullable => 1 },
-  "log",
-  { data_type => "text", is_nullable => 1 },
-  "debug",
-  { data_type => "boolean", is_nullable => 1 },
-  "device_key",
-  { data_type => "text", is_nullable => 1 },
-  "job_priority",
-  { data_type => "integer", is_nullable => 1 },
+  "job",          {data_type => "integer",   is_nullable => 0,},
+  "entered",      {data_type => "timestamp", is_nullable => 1},
+  "started",      {data_type => "timestamp", is_nullable => 1},
+  "finished",     {data_type => "timestamp", is_nullable => 1},
+  "device",       {data_type => "inet",      is_nullable => 1},
+  "port",         {data_type => "text",      is_nullable => 1},
+  "action",       {data_type => "text",      is_nullable => 1},
+  "subaction",    {data_type => "text",      is_nullable => 1},
+  "status",       {data_type => "text",      is_nullable => 1},
+  "username",     {data_type => "text",      is_nullable => 1},
+  "userip",       {data_type => "inet",      is_nullable => 1},
+  "log",          {data_type => "text",      is_nullable => 1},
+  "debug",        {data_type => "boolean",   is_nullable => 1},
+  "device_key",   {data_type => "text",      is_nullable => 1},
+  "job_priority", {data_type => "integer",   is_nullable => 1},
 );
 
 # 设置主键

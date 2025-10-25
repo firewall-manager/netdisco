@@ -9,17 +9,12 @@ use warnings;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("product");
+
 # 定义表列
 # 包含OID、MIB、叶子节点和描述信息
 __PACKAGE__->add_columns(
-  "oid",
-  { data_type => "text", is_nullable => 0 },
-  "mib",
-  { data_type => "text", is_nullable => 0 },
-  "leaf",
-  { data_type => "text", is_nullable => 0 },
-  "descr",
-  { data_type => "text", is_nullable => 1 },
+  "oid",  {data_type => "text", is_nullable => 0}, "mib",   {data_type => "text", is_nullable => 0},
+  "leaf", {data_type => "text", is_nullable => 0}, "descr", {data_type => "text", is_nullable => 1},
 );
 
 # 设置主键

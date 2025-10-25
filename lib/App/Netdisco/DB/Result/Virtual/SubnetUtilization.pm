@@ -13,6 +13,7 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('cidr_ips');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：子网利用率统计
 # 统计子网中活跃IP地址数量和利用率百分比
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
@@ -48,14 +49,10 @@ ENDSQL
 # 定义虚拟视图的列
 # 包含子网信息、大小、活跃IP数量和利用率百分比
 __PACKAGE__->add_columns(
-  "subnet",
-  { data_type => "cidr", is_nullable => 0 },
-  "subnet_size",
-  { data_type => "integer", is_nullable => 0 },
-  "active",
-  { data_type => "integer", is_nullable => 0 },
-  "percent",
-  { data_type => "integer", is_nullable => 0 },
+  "subnet",      {data_type => "cidr",    is_nullable => 0},
+  "subnet_size", {data_type => "integer", is_nullable => 0},
+  "active",      {data_type => "integer", is_nullable => 0},
+  "percent",     {data_type => "integer", is_nullable => 0},
 );
 
 1;

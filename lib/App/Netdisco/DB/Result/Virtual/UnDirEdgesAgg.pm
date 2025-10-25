@@ -12,6 +12,7 @@ __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
 
 __PACKAGE__->table('undir_edges_agg');
 __PACKAGE__->result_source_instance->is_virtual(1);
+
 # 虚拟视图定义：无向边聚合
 # 聚合设备间的双向连接，创建无向图结构
 __PACKAGE__->result_source_instance->view_definition(<<'ENDSQL');
@@ -46,18 +47,10 @@ ENDSQL
 
 # 定义虚拟视图的列
 # 包含设备IP和连接的设备IP数组
-__PACKAGE__->add_columns(
-  'left_ip' => {
-    data_type => 'inet',
-  },
-  'links' => {
-    data_type => 'inet[]',
-  }
-);
+__PACKAGE__->add_columns('left_ip' => {data_type => 'inet',}, 'links' => {data_type => 'inet[]',});
 
 # 定义关联关系：设备
 # 通过IP地址关联到设备表
-__PACKAGE__->belongs_to('device', 'App::Netdisco::DB::Result::Device',
-  { 'foreign.ip' => 'self.left_ip' });
+__PACKAGE__->belongs_to('device', 'App::Netdisco::DB::Result::Device', {'foreign.ip' => 'self.left_ip'});
 
 1;

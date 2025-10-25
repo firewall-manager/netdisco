@@ -14,93 +14,92 @@ use overload '""' => sub { shift->ip }, fallback => 1;
 
 use base 'App::Netdisco::DB::Result';
 __PACKAGE__->table("device");
+
 # 定义表列
 # 包含设备的完整信息：IP、DNS、描述、硬件、软件、SNMP等
 __PACKAGE__->add_columns(
   "ip",
-  { data_type => "inet", is_nullable => 0 },
-  "creation",
-  {
+  {data_type => "inet", is_nullable => 0},
+  "creation", {
     data_type     => "timestamp",
     default_value => \"LOCALTIMESTAMP",
     is_nullable   => 1,
-    original      => { default_value => \"LOCALTIMESTAMP" },
+    original      => {default_value => \"LOCALTIMESTAMP"},
   },
   "dns",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "description",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "uptime",
-  { data_type => "bigint", is_nullable => 1 },
+  {data_type => "bigint", is_nullable => 1},
   "contact",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "name",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "location",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "layers",
-  { data_type => "varchar", is_nullable => 1, size => 8 },
+  {data_type => "varchar", is_nullable => 1, size => 8},
   "num_ports",
-  { data_type => "integer", is_serializable => 0, is_nullable => 1 },
+  {data_type => "integer", is_serializable => 0, is_nullable => 1},
   "mac",
-  { data_type => "macaddr", is_nullable => 1 },
+  {data_type => "macaddr", is_nullable => 1},
   "serial",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "chassis_id",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "model",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "ps1_type",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "ps2_type",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "ps1_status",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "ps2_status",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "fan",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "slots",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "vendor",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "os",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "os_ver",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "log",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "snmp_ver",
-  { data_type => "integer", is_nullable => 1 },
+  {data_type => "integer", is_nullable => 1},
   "snmp_comm",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "snmp_class",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "snmp_engineid",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "vtp_domain",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "vtp_mode",
-  { data_type => "text", is_nullable => 1 },
+  {data_type => "text", is_nullable => 1},
   "last_discover",
-  { data_type => "timestamp", is_nullable => 1 },
+  {data_type => "timestamp", is_nullable => 1},
   "last_macsuck",
-  { data_type => "timestamp", is_nullable => 1 },
+  {data_type => "timestamp", is_nullable => 1},
   "last_arpnip",
-  { data_type => "timestamp", is_nullable => 1 },
+  {data_type => "timestamp", is_nullable => 1},
   "is_pseudo",
-  { data_type => "boolean", is_nullable => 0, default_value => \"false" },
+  {data_type => "boolean", is_nullable => 0, default_value => \"false"},
   "pae_is_enabled",
-  { data_type => "boolean", is_nullable => 1 },
+  {data_type => "boolean", is_nullable => 1},
   "custom_fields",
-  { data_type => "jsonb", is_nullable => 0, default_value => \"{}" },
+  {data_type => "jsonb", is_nullable => 0, default_value => \"{}"},
   "tags",
-  { data_type => "text[]", is_nullable => 0, default_value => \"'{}'::text[]" },
+  {data_type => "text[]", is_nullable => 0, default_value => \"'{}'::text[]"},
 );
 
 # 设置主键
 __PACKAGE__->set_primary_key("ip");
-
 
 =head1 RELATIONSHIPS
 
@@ -113,7 +112,7 @@ all the interface IP aliases configured on the Device.
 
 # 定义关联关系：设备IP别名
 # 返回与此设备相关的device_ip表行，即设备上配置的所有接口IP别名
-__PACKAGE__->has_many( device_ips => 'App::Netdisco::DB::Result::DeviceIp', 'ip' );
+__PACKAGE__->has_many(device_ips => 'App::Netdisco::DB::Result::DeviceIp', 'ip');
 
 =head2 device_ips_by_address_or_name
 
@@ -124,19 +123,20 @@ so you can pass the MAC address part.
 
 =cut
 
-__PACKAGE__->has_many( device_ips_by_address_or_name => 'App::Netdisco::DB::Result::DeviceIp',
+__PACKAGE__->has_many(
+  device_ips_by_address_or_name => 'App::Netdisco::DB::Result::DeviceIp',
   sub {
     my $args = shift;
     return {
-      "$args->{foreign_alias}.ip" => { -ident => "$args->{self_alias}.ip" },
-      -or => [
-        "$args->{foreign_alias}.dns" => { 'ilike', \'?' },
-        "$args->{foreign_alias}.alias" => { '<<=', \'?' },
-        "$args->{foreign_alias}.alias::text" => { 'ilike', \'?' },
+      "$args->{foreign_alias}.ip" => {-ident => "$args->{self_alias}.ip"},
+      -or                         => [
+        "$args->{foreign_alias}.dns"         => {'ilike', \'?'},
+        "$args->{foreign_alias}.alias"       => {'<<=',   \'?'},
+        "$args->{foreign_alias}.alias::text" => {'ilike', \'?'},
       ],
     };
   },
-  { cascade_copy => 0, cascade_update => 0, cascade_delete => 0 }
+  {cascade_copy => 0, cascade_update => 0, cascade_delete => 0}
 );
 
 =head2 vlans
@@ -146,7 +146,7 @@ configured on or known by this Device.
 
 =cut
 
-__PACKAGE__->has_many( vlans => 'App::Netdisco::DB::Result::DeviceVlan', 'ip' );
+__PACKAGE__->has_many(vlans => 'App::Netdisco::DB::Result::DeviceVlan', 'ip');
 
 =head2 ports
 
@@ -156,7 +156,7 @@ Returns the set of ports on this Device.
 
 # 定义关联关系：端口
 # 返回此设备上的端口集合
-__PACKAGE__->has_many( ports => 'App::Netdisco::DB::Result::DevicePort', 'ip' );
+__PACKAGE__->has_many(ports => 'App::Netdisco::DB::Result::DevicePort', 'ip');
 
 =head2 ports_by_mac
 
@@ -166,15 +166,16 @@ MAC address part.
 
 =cut
 
-__PACKAGE__->has_many( ports_by_mac => 'App::Netdisco::DB::Result::DevicePort',
+__PACKAGE__->has_many(
+  ports_by_mac => 'App::Netdisco::DB::Result::DevicePort',
   sub {
     my $args = shift;
     return {
-      "$args->{foreign_alias}.ip" => { -ident => "$args->{self_alias}.ip" },
-      "$args->{foreign_alias}.mac::text" => { 'ilike', \'?' },
+      "$args->{foreign_alias}.ip"        => {-ident => "$args->{self_alias}.ip"},
+      "$args->{foreign_alias}.mac::text" => {'ilike', \'?'},
     };
   },
-  { cascade_copy => 0, cascade_update => 0, cascade_delete => 0 }
+  {cascade_copy => 0, cascade_update => 0, cascade_delete => 0}
 );
 
 =head2 module_serials
@@ -183,19 +184,17 @@ Returns the set chassis modules on this Device.
 
 =cut
 
-__PACKAGE__->has_many( module_serials => 'App::Netdisco::DB::Result::DeviceModule',
+__PACKAGE__->has_many(
+  module_serials => 'App::Netdisco::DB::Result::DeviceModule',
   sub {
     my $args = shift;
     return {
-      "$args->{foreign_alias}.ip" => { -ident => "$args->{self_alias}.ip" },
+      "$args->{foreign_alias}.ip"    => {-ident => "$args->{self_alias}.ip"},
       "$args->{foreign_alias}.class" => 'chassis',
-      -and => [
-        "$args->{foreign_alias}.serial" => { '!=' => undef },
-        "$args->{foreign_alias}.serial" => { '!=' => '' },
-      ],
+      -and => ["$args->{foreign_alias}.serial" => {'!=' => undef}, "$args->{foreign_alias}.serial" => {'!=' => ''},],
     };
   },
-  { cascade_copy => 0, cascade_update => 0, cascade_delete => 0 }
+  {cascade_copy => 0, cascade_update => 0, cascade_delete => 0}
 );
 
 =head2 modules
@@ -204,7 +203,7 @@ Returns the set chassis modules on this Device.
 
 =cut
 
-__PACKAGE__->has_many( modules => 'App::Netdisco::DB::Result::DeviceModule', 'ip' );
+__PACKAGE__->has_many(modules => 'App::Netdisco::DB::Result::DeviceModule', 'ip');
 
 =head2 power_modules
 
@@ -212,7 +211,7 @@ Returns the set of power modules on this Device.
 
 =cut
 
-__PACKAGE__->has_many( power_modules => 'App::Netdisco::DB::Result::DevicePower', 'ip' );
+__PACKAGE__->has_many(power_modules => 'App::Netdisco::DB::Result::DevicePower', 'ip');
 
 =head2 oids
 
@@ -220,7 +219,7 @@ Returns the oids walked on this Device.
 
 =cut
 
-__PACKAGE__->has_many( oids => 'App::Netdisco::DB::Result::DeviceBrowser', 'ip' );
+__PACKAGE__->has_many(oids => 'App::Netdisco::DB::Result::DeviceBrowser', 'ip');
 
 =head2 port_vlans
 
@@ -232,10 +231,7 @@ only on Ports on this Device.
 
 =cut
 
-__PACKAGE__->has_many(
-    port_vlans => 'App::Netdisco::DB::Result::DevicePortVlan',
-    'ip', { join_type => 'RIGHT' }
-);
+__PACKAGE__->has_many(port_vlans => 'App::Netdisco::DB::Result::DevicePortVlan', 'ip', {join_type => 'RIGHT'});
 
 =head2 port_vlans_filter
 
@@ -244,10 +240,7 @@ carrying a given VLAN on its ports. Uses an INNER JOIN to achieve this.
 
 =cut
 
-__PACKAGE__->has_many(
-    port_vlans_filter => 'App::Netdisco::DB::Result::DevicePortVlan',
-    'ip', { join_type => 'INNER' }
-);
+__PACKAGE__->has_many(port_vlans_filter => 'App::Netdisco::DB::Result::DevicePortVlan', 'ip', {join_type => 'INNER'});
 
 # helper which assumes we've just RIGHT JOINed to Vlans table
 sub vlan { return (shift)->vlans->first }
@@ -259,10 +252,7 @@ Device.
 
 =cut
 
-__PACKAGE__->has_many(
-    wireless_ports => 'App::Netdisco::DB::Result::DevicePortWireless',
-    'ip', { join_type => 'RIGHT' }
-);
+__PACKAGE__->has_many(wireless_ports => 'App::Netdisco::DB::Result::DevicePortWireless', 'ip', {join_type => 'RIGHT'});
 
 =head2 ssids
 
@@ -270,10 +260,7 @@ Returns the set of SSIDs known to be configured on Ports on this Device.
 
 =cut
 
-__PACKAGE__->has_many(
-    ssids => 'App::Netdisco::DB::Result::DevicePortSsid',
-    'ip', { join_type => 'RIGHT' }
-);
+__PACKAGE__->has_many(ssids => 'App::Netdisco::DB::Result::DevicePortSsid', 'ip', {join_type => 'RIGHT'});
 
 =head2 properties_ports
 
@@ -282,8 +269,8 @@ Returns the set of ports known to have recorded properties
 =cut
 
 __PACKAGE__->has_many(
-    properties_ports => 'App::Netdisco::DB::Result::DevicePortProperties',
-    'ip', { join_type => 'RIGHT' }
+  properties_ports => 'App::Netdisco::DB::Result::DevicePortProperties',
+  'ip', {join_type => 'RIGHT'}
 );
 
 =head2 powered_ports
@@ -292,10 +279,7 @@ Returns the set of ports known to have PoE capability
 
 =cut
 
-__PACKAGE__->has_many(
-    powered_ports => 'App::Netdisco::DB::Result::DevicePortPower',
-    'ip', { join_type => 'RIGHT' }
-);
+__PACKAGE__->has_many(powered_ports => 'App::Netdisco::DB::Result::DevicePortPower', 'ip', {join_type => 'RIGHT'});
 
 =head2 community
 
@@ -303,8 +287,7 @@ Returns the row from the community string table, if one exists.
 
 =cut
 
-__PACKAGE__->might_have(
-    community => 'App::Netdisco::DB::Result::Community', 'ip');
+__PACKAGE__->might_have(community => 'App::Netdisco::DB::Result::Community', 'ip');
 
 =head2 throughput
 
@@ -312,8 +295,7 @@ Returns a sum of speeds on all ports on the device.
 
 =cut
 
-__PACKAGE__->has_one(
-    throughput => 'App::Netdisco::DB::Result::Virtual::DevicePortSpeed', 'ip');
+__PACKAGE__->has_one(throughput => 'App::Netdisco::DB::Result::Virtual::DevicePortSpeed', 'ip');
 
 =head1 ADDITIONAL METHODS
 
@@ -328,7 +310,7 @@ Returns true if the device provided sysServices and supports the given layer.
 sub has_layer {
   my ($device, $layer) = @_;
   return unless $layer and $layer =~ m/^[1-7]$/;
-  return ($device->layers and (substr($device->layers, (8-$layer), 1) == 1));
+  return ($device->layers and (substr($device->layers, (8 - $layer), 1) == 1));
 }
 
 =head2 renumber( $new_ip )
@@ -345,8 +327,7 @@ sub renumber {
   my ($device, $ip) = @_;
   my $schema = $device->result_source->schema;
 
-  my $new_addr = NetAddr::IP::Lite->new($ip)
-    or return;
+  my $new_addr = NetAddr::IP::Lite->new($ip) or return;
 
   my $old_ip = $device->ip;
   my $new_ip = $new_addr->addr;
@@ -354,14 +335,12 @@ sub renumber {
   return if $new_ip eq '0.0.0.0';
 
   # device_ip表中总是存在的特殊记录
-  $schema->resultset('DeviceIp')
-    ->search({ip => $old_ip, alias => $old_ip})
-    ->update({ip => $new_ip, alias => $new_ip});
-  $schema->resultset('DeviceIp')
-    ->search({ip => $old_ip, alias => $new_ip})->delete();
+  $schema->resultset('DeviceIp')->search({ip => $old_ip, alias => $old_ip})->update({ip => $new_ip, alias => $new_ip});
+  $schema->resultset('DeviceIp')->search({ip => $old_ip, alias => $new_ip})->delete();
 
   # 不包括Community，因为SNMP::test_connection会处理它
-  foreach my $set (qw/
+  foreach my $set (
+    qw/
     DeviceBrowser
     DeviceIp
     DeviceModule
@@ -374,25 +353,17 @@ sub renumber {
     DevicePortSsid
     DevicePortVlan
     DevicePortWireless
-  /) {
-    $schema->resultset($set)
-      ->search({ip => $old_ip})
-      ->update({ip => $new_ip});
+    /
+  ) {
+    $schema->resultset($set)->search({ip => $old_ip})->update({ip => $new_ip});
   }
 
-  $schema->resultset('DeviceSkip')
-    ->search({device => $new_ip})->delete;
-  $schema->resultset('DeviceSkip')
-    ->search({device => $old_ip})
-    ->update({device => $new_ip});
+  $schema->resultset('DeviceSkip')->search({device => $new_ip})->delete;
+  $schema->resultset('DeviceSkip')->search({device => $old_ip})->update({device => $new_ip});
 
-  $schema->resultset('DevicePort')
-    ->search({remote_ip => $old_ip})
-    ->update({remote_ip => $new_ip});
+  $schema->resultset('DevicePort')->search({remote_ip => $old_ip})->update({remote_ip => $new_ip});
 
-  $schema->resultset('Node')
-    ->search({switch => $old_ip})
-    ->update({switch => $new_ip});
+  $schema->resultset('Node')->search({switch => $old_ip})->update({switch => $new_ip});
 
   # this whole shenanigans exists because I cannot work out how to
   # pass an escaped SQL placeholder into DBIx::Class/SQL::Abstract
@@ -416,22 +387,15 @@ sub renumber {
     $dbh->do($router_last_sql, undef, $old_ip, $new_ip, $old_ip, $old_ip);
   });
 
-  $schema->resultset('Topology')
-    ->search({dev1 => $old_ip})
-    ->update({dev1 => $new_ip});
+  $schema->resultset('Topology')->search({dev1 => $old_ip})->update({dev1 => $new_ip});
 
-  $schema->resultset('Topology')
-    ->search({dev2 => $old_ip})
-    ->update({dev2 => $new_ip});
+  $schema->resultset('Topology')->search({dev2 => $old_ip})->update({dev2 => $new_ip});
 
-  $schema->resultset('Admin')->search({
-    device => $old_ip,
-  })->delete;
+  $schema->resultset('Admin')->search({device => $old_ip,})->delete;
 
   $device->update({
     ip  => $new_ip,
-    dns => (hostname_from_ip($new_ip)
-      || eval { $schema->resultset('DeviceIp')->find($new_ip,$new_ip)->dns } || undef),
+    dns => (hostname_from_ip($new_ip) || eval { $schema->resultset('DeviceIp')->find($new_ip, $new_ip)->dns } || undef),
   });
 
   return $device;
@@ -448,7 +412,6 @@ column by applying the C<with_port_count()> modifier to C<search()>.
 
 sub port_count { return (shift)->get_column('port_count') }
 
-
 =head2 uptime_age
 
 Formatted version of the C<uptime> field.
@@ -459,7 +422,7 @@ The format is in "X days/months/years" style, similar to:
 
 =cut
 
-sub uptime_age  { return (shift)->get_column('uptime_age')  }
+sub uptime_age { return (shift)->get_column('uptime_age') }
 
 =head2 first_seen_stamp
 
@@ -472,7 +435,7 @@ between the date stamp and time stamp. That is:
 
 =cut
 
-sub first_seen_stamp  { return (shift)->get_column('first_seen_stamp')  }
+sub first_seen_stamp { return (shift)->get_column('first_seen_stamp') }
 
 =head2 last_discover_stamp
 
@@ -485,7 +448,7 @@ between the date stamp and time stamp. That is:
 
 =cut
 
-sub last_discover_stamp  { return (shift)->get_column('last_discover_stamp')  }
+sub last_discover_stamp { return (shift)->get_column('last_discover_stamp') }
 
 =head2 last_macsuck_stamp
 
@@ -498,7 +461,7 @@ between the date stamp and time stamp. That is:
 
 =cut
 
-sub last_macsuck_stamp  { return (shift)->get_column('last_macsuck_stamp')  }
+sub last_macsuck_stamp { return (shift)->get_column('last_macsuck_stamp') }
 
 =head2 last_arpnip_stamp
 
@@ -511,7 +474,7 @@ between the date stamp and time stamp. That is:
 
 =cut
 
-sub last_arpnip_stamp  { return (shift)->get_column('last_arpnip_stamp')  }
+sub last_arpnip_stamp { return (shift)->get_column('last_arpnip_stamp') }
 
 =head2 since_last_discover
 
@@ -519,7 +482,7 @@ Number of seconds which have elapsed since the value of C<last_discover>.
 
 =cut
 
-sub since_last_discover  { return (shift)->get_column('since_last_discover')  }
+sub since_last_discover { return (shift)->get_column('since_last_discover') }
 
 =head2 since_last_macsuck
 
@@ -527,7 +490,7 @@ Number of seconds which have elapsed since the value of C<last_macsuck>.
 
 =cut
 
-sub since_last_macsuck  { return (shift)->get_column('since_last_macsuck')  }
+sub since_last_macsuck { return (shift)->get_column('since_last_macsuck') }
 
 =head2 since_last_arpnip
 
@@ -535,6 +498,6 @@ Number of seconds which have elapsed since the value of C<last_arpnip>.
 
 =cut
 
-sub since_last_arpnip  { return (shift)->get_column('since_last_arpnip')  }
+sub since_last_arpnip { return (shift)->get_column('since_last_arpnip') }
 
 1;

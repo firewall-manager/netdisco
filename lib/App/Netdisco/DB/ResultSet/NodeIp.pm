@@ -8,20 +8,22 @@ use base 'App::Netdisco::DB::ResultSet';
 use strict;
 use warnings;
 
-__PACKAGE__->load_components(qw/
-  +App::Netdisco::DB::ExplicitLocking
-/);
+__PACKAGE__->load_components(
+  qw/
+    +App::Netdisco::DB::ExplicitLocking
+    /
+);
 
 # 按最后时间排序并连接制造商表的配置
 my $order_by_time_last_and_join_manufacturer = {
-    order_by => {'-desc' => 'time_last'},
-    '+columns' => [
-      'manufacturer.company',
-      'manufacturer.abbrev',
-      { time_first_stamp => \"to_char(time_first, 'YYYY-MM-DD HH24:MI')" },
-      { time_last_stamp =>  \"to_char(time_last, 'YYYY-MM-DD HH24:MI')" },
-    ],
-    join => 'manufacturer'
+  order_by   => {'-desc' => 'time_last'},
+  '+columns' => [
+    'manufacturer.company',
+    'manufacturer.abbrev',
+    {time_first_stamp => \"to_char(time_first, 'YYYY-MM-DD HH24:MI')"},
+    {time_last_stamp  => \"to_char(time_last, 'YYYY-MM-DD HH24:MI')"},
+  ],
+  join => 'manufacturer'
 };
 
 =head1 with_times
@@ -44,9 +46,7 @@ will add the following additional synthesized columns to the result set:
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs({}, $order_by_time_last_and_join_manufacturer)
-    ->search($cond, $attrs);
+  return $rs->search_rs({}, $order_by_time_last_and_join_manufacturer)->search($cond, $attrs);
 }
 
 =head1 with_router
@@ -69,15 +69,19 @@ will add the following additional synthesized column to the result set:
 sub with_router {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs({}, {
-        '+columns' => [
-          { router_ip =>  \q{(SELECT key FROM json_each_text(seen_on_router_last::json) ORDER BY value::timestamp DESC LIMIT 1)} },
-          { router_name => \q{COALESCE(NULLIF(router.dns,''), NULLIF(router.name,''), '')} },
-        ],
-        join => 'router'
-      })
-    ->search($cond, $attrs);
+  return $rs->search_rs(
+    {},
+    {
+      '+columns' => [
+        {
+          router_ip => \
+            q{(SELECT key FROM json_each_text(seen_on_router_last::json) ORDER BY value::timestamp DESC LIMIT 1)}
+        },
+        {router_name => \q{COALESCE(NULLIF(router.dns,''), NULLIF(router.name,''), '')}},
+      ],
+      join => 'router'
+    }
+  )->search($cond, $attrs);
 }
 
 =head1 search_by_ip( \%cond, \%attrs? )
@@ -116,23 +120,20 @@ To limit results only to active IPs, set C<< {active => 1} >> in C<cond>.
 =cut
 
 sub search_by_ip {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "ip address required for search_by_ip\n"
-      if ref {} ne ref $cond or !exists $cond->{ip};
+  die "ip address required for search_by_ip\n" if ref {} ne ref $cond or !exists $cond->{ip};
 
-    # 处理纯文本IP或NetAddr::IP（/32或CIDR）
-    my ($op, $ip) = ('=', delete $cond->{ip});
+  # 处理纯文本IP或NetAddr::IP（/32或CIDR）
+  my ($op, $ip) = ('=', delete $cond->{ip});
 
-    if ('NetAddr::IP::Lite' eq ref $ip and $ip->num > 1) {
-        $op = '<<=';
-        $ip = $ip->cidr;
-    }
-    $cond->{'me.ip'} = { $op => $ip };
+  if ('NetAddr::IP::Lite' eq ref $ip and $ip->num > 1) {
+    $op = '<<=';
+    $ip = $ip->cidr;
+  }
+  $cond->{'me.ip'} = {$op => $ip};
 
-    return $rs
-      ->search_rs({}, $order_by_time_last_and_join_manufacturer)
-      ->search($cond, $attrs);
+  return $rs->search_rs({}, $order_by_time_last_and_join_manufacturer)->search($cond, $attrs);
 }
 
 =head1 search_by_dns( \%cond, \%attrs? )
@@ -184,47 +185,36 @@ To limit results only to active IPs, set C<< {active => 1} >> in C<cond>.
 =cut
 
 sub search_by_dns {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "dns field required for search_by_dns\n"
-      if ref {} ne ref $cond or !exists $cond->{dns};
+  die "dns field required for search_by_dns\n" if ref {} ne ref $cond or !exists $cond->{dns};
 
-    my $dns_field = delete $cond->{dns};
+  my $dns_field = delete $cond->{dns};
 
-    # 处理正则表达式后缀
-    (my $suffix = ($cond->{suffix} || ''))
-      =~ s|\Q(?^\E[-xismu]*|(?|g;
+  # 处理正则表达式后缀
+  (my $suffix = ($cond->{suffix} || '')) =~ s|\Q(?^\E[-xismu]*|(?|g;
 
-    # 处理DNS字段匹配逻辑
-    if (q{} eq ref $dns_field and exists $cond->{suffix}) {
-        (my $stripped_dns_field = $dns_field) =~ s/\.\%$//;
-        (my $fqdn_field = $stripped_dns_field) .= '%';
-        $stripped_dns_field =~ s/$cond->{suffix}$// if $cond->{suffix};
-        $stripped_dns_field .= '.%';
+  # 处理DNS字段匹配逻辑
+  if (q{} eq ref $dns_field and exists $cond->{suffix}) {
+    (my $stripped_dns_field = $dns_field) =~ s/\.\%$//;
+    (my $fqdn_field = $stripped_dns_field) .= '%';
+    $stripped_dns_field =~ s/$cond->{suffix}$// if $cond->{suffix};
+    $stripped_dns_field .= '.%';
 
-        $cond->{'me.dns'} = [ -or =>
-          [ -and =>
-              { '-ilike' => $stripped_dns_field },
-              { '~*' => "***:$suffix" },
-          ],
-          [ -and =>
-              { '-ilike' => $dns_field },
-              { '~*' => "***:$suffix" },
-          ],
-          { '-ilike' => $fqdn_field },
-        ];
-    }
-    elsif (q{} ne ref $dns_field) {
-        $cond->{'me.dns'} = $dns_field;
-    }
-    else {
-        $cond->{'me.dns'} = { '-ilike' => $dns_field };
-    }
+    $cond->{'me.dns'} = [
+      -or => [-and => {'-ilike' => $stripped_dns_field}, {'~*' => "***:$suffix"},],
+      [-and => {'-ilike' => $dns_field}, {'~*' => "***:$suffix"},], {'-ilike' => $fqdn_field},
+    ];
+  }
+  elsif (q{} ne ref $dns_field) {
+    $cond->{'me.dns'} = $dns_field;
+  }
+  else {
+    $cond->{'me.dns'} = {'-ilike' => $dns_field};
+  }
 
-    delete $cond->{suffix};
-    return $rs
-      ->search_rs({}, $order_by_time_last_and_join_manufacturer)
-      ->search($cond, $attrs);
+  delete $cond->{suffix};
+  return $rs->search_rs({}, $order_by_time_last_and_join_manufacturer)->search($cond, $attrs);
 }
 
 =head1 search_by_mac( \%cond, \%attrs? )
@@ -261,14 +251,11 @@ To limit results only to active IPs, set C<< {active => 1} >> in C<cond>.
 =cut
 
 sub search_by_mac {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "mac address required for search_by_mac\n"
-      if ref {} ne ref $cond or !exists $cond->{mac};
+  die "mac address required for search_by_mac\n" if ref {} ne ref $cond or !exists $cond->{mac};
 
-    return $rs
-      ->search_rs({}, $order_by_time_last_and_join_manufacturer)
-      ->search($cond, $attrs);
+  return $rs->search_rs({}, $order_by_time_last_and_join_manufacturer)->search($cond, $attrs);
 }
 
 =head2 ip_version( $version )
@@ -289,12 +276,11 @@ The C<version> parameter must be an integer either 4 or 6.
 =cut
 
 sub ip_version {
-    my ( $rs, $version ) = @_;
+  my ($rs, $version) = @_;
 
-    die "ip_version input must be either 4 or 6\n"
-        unless $version && ( $version == 4 || $version == 6 );
+  die "ip_version input must be either 4 or 6\n" unless $version && ($version == 4 || $version == 6);
 
-    return $rs->search_rs( \[ 'family(me.ip) = ?', $version ] );
+  return $rs->search_rs(\['family(me.ip) = ?', $version]);
 }
 
 1;

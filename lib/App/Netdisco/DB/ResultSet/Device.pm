@@ -31,11 +31,13 @@ sub device_ips_with_address_or_name {
   my ($rs, $q, $ipbind) = @_;
   $q ||= '255.255.255.255/32';
 
-  return $rs->search(undef,{
-    # 注意：绑定参数列表顺序很重要
-    join => ['device_ips_by_address_or_name'],
-    bind => [$q, $ipbind, $q],
-  });
+  return $rs->search(
+    undef, {
+      # 注意：绑定参数列表顺序很重要
+      join => ['device_ips_by_address_or_name'],
+      bind => [$q, $ipbind, $q],
+    }
+  );
 }
 
 =head2 with_module_serials
@@ -49,12 +51,14 @@ C<module_serials> relation.
 # 使用module_serials关系将module_serials.serial字段添加到结果中
 sub with_module_serials {
   my $rs = shift;
-  return $rs->search(undef, {
-    join => 'module_serials',
-    '+columns' => [ qw/ module_serials.ip module_serials.index module_serials.serial / ],
-    collapse => 1,
-    distinct => 0,
-  });
+  return $rs->search(
+    undef, {
+      join       => 'module_serials',
+      '+columns' => [qw/ module_serials.ip module_serials.index module_serials.serial /],
+      collapse   => 1,
+      distinct   => 0,
+    }
+  );
 }
 
 =head2 ports_with_mac( $mac )
@@ -70,11 +74,13 @@ sub ports_with_mac {
   my ($rs, $mac) = @_;
   $mac ||= '00:00:00:00:00:00';
 
-  return $rs->search(undef,{
-    # 注意：绑定参数列表顺序很重要
-    join => ['ports_by_mac'],
-    bind => [$mac],
-  });
+  return $rs->search(
+    undef, {
+      # 注意：绑定参数列表顺序很重要
+      join => ['ports_by_mac'],
+      bind => [$mac],
+    }
+  );
 }
 
 =head2 with_times
@@ -111,23 +117,25 @@ will add the following additional synthesized columns to the result set:
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+columns' => {
-          uptime_age => \("replace(age(timestamp 'epoch' + me.uptime / 100 * interval '1 second', "
-            ."timestamp '1970-01-01 00:00:00-00')::text, 'mon', 'month')"),
-          first_seen_stamp    => \"to_char(me.creation, 'YYYY-MM-DD HH24:MI')",
-          last_discover_stamp => \"to_char(me.last_discover, 'YYYY-MM-DD HH24:MI')",
-          last_macsuck_stamp  => \"to_char(me.last_macsuck,  'YYYY-MM-DD HH24:MI')",
-          last_arpnip_stamp   => \"to_char(me.last_arpnip,   'YYYY-MM-DD HH24:MI')",
-          since_first_seen    => \"extract(epoch from (age(LOCALTIMESTAMP, me.creation)))",
-          since_last_discover => \"extract(epoch from (age(LOCALTIMESTAMP, me.last_discover)))",
-          since_last_macsuck  => \"extract(epoch from (age(LOCALTIMESTAMP, me.last_macsuck)))",
-          since_last_arpnip   => \"extract(epoch from (age(LOCALTIMESTAMP, me.last_arpnip)))",
-        },
-      });
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+columns' => {
+        uptime_age => \(
+              "replace(age(timestamp 'epoch' + me.uptime / 100 * interval '1 second', "
+            . "timestamp '1970-01-01 00:00:00-00')::text, 'mon', 'month')"
+        ),
+        first_seen_stamp    => \"to_char(me.creation, 'YYYY-MM-DD HH24:MI')",
+        last_discover_stamp => \"to_char(me.last_discover, 'YYYY-MM-DD HH24:MI')",
+        last_macsuck_stamp  => \"to_char(me.last_macsuck,  'YYYY-MM-DD HH24:MI')",
+        last_arpnip_stamp   => \"to_char(me.last_arpnip,   'YYYY-MM-DD HH24:MI')",
+        since_first_seen    => \"extract(epoch from (age(LOCALTIMESTAMP, me.creation)))",
+        since_last_discover => \"extract(epoch from (age(LOCALTIMESTAMP, me.last_discover)))",
+        since_last_macsuck  => \"extract(epoch from (age(LOCALTIMESTAMP, me.last_macsuck)))",
+        since_last_arpnip   => \"extract(epoch from (age(LOCALTIMESTAMP, me.last_arpnip)))",
+      },
+    }
+  );
 }
 
 =head2 search_aliases( {$name or $ip or $prefix}, \%options? )
@@ -146,46 +154,36 @@ a partial, case-insensitive search on the host name fields.
 =cut
 
 sub search_aliases {
-    my ($rs, $q, $options) = @_;
-    $q ||= '255.255.255.255'; # hack to return empty resultset on error
-    $options ||= {};
-    $options->{partial} = 1 if !defined $options->{partial};
+  my ($rs, $q, $options) = @_;
+  $q       ||= '255.255.255.255';    # hack to return empty resultset on error
+  $options ||= {};
+  $options->{partial} = 1 if !defined $options->{partial};
 
-    # IP地址的粗略近似（不支持v4在v6中）
-    # 这有助于我们避免触发任何DNS
-    my $by_ip = ($q =~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i) ? 1 : 0;
+  # IP地址的粗略近似（不支持v4在v6中）
+  # 这有助于我们避免触发任何DNS
+  my $by_ip = ($q =~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i) ? 1 : 0;
 
-    my ($clause, $sorter);
-    if ($by_ip) {
-        my $ip = NetAddr::IP::Lite->new($q)
-          or return undef; # 可能是MAC地址！
-        $clause = [
-            'me.ip'  => { '<<=' => $ip->cidr },
-            'device_ips.alias' => { '<<=' => $ip->cidr },
-        ];
-        $sorter = \[q{CASE WHEN (me.ip <<= ?) THEN 1 ELSE 0 END}, $ip->cidr];
+  my ($clause, $sorter);
+  if ($by_ip) {
+    my $ip = NetAddr::IP::Lite->new($q) or return undef;    # 可能是MAC地址！
+    $clause = ['me.ip' => {'<<=' => $ip->cidr}, 'device_ips.alias' => {'<<=' => $ip->cidr},];
+    $sorter = \[q{CASE WHEN (me.ip <<= ?) THEN 1 ELSE 0 END}, $ip->cidr];
+  }
+  else {
+    $q      = "\%$q\%" if ($options->{partial} and $q !~ m/\%/);
+    $clause = ['me.name' => {'-ilike' => $q}, 'me.dns' => {'-ilike' => $q}, 'device_ips.dns' => {'-ilike' => $q},];
+    $sorter = \[q{CASE WHEN (me.name ILIKE ? OR me.dns ILIKE ?) THEN 1 ELSE 0 END}, $q, $q];
+  }
+
+  return $rs->search(
+    {-or => $clause,},
+    {
+      '+select' => [{coalesce => $sorter, -as => 'in_device'}],
+      order_by  => [{-desc    => 'in_device'}, {-asc => [qw/ me.dns me.ip /]}],
+      group_by  => ['me.ip'],
+      join      => 'device_ips',
     }
-    else {
-        $q = "\%$q\%" if ($options->{partial} and $q !~ m/\%/);
-        $clause = [
-            'me.name' => { '-ilike' => $q },
-            'me.dns'  => { '-ilike' => $q },
-            'device_ips.dns' => { '-ilike' => $q },
-        ];
-        $sorter = \[q{CASE WHEN (me.name ILIKE ? OR me.dns ILIKE ?) THEN 1 ELSE 0 END}, $q, $q];
-    }
-
-    return $rs->search(
-      {
-        -or => $clause,
-      },
-      {
-        '+select' => [ { coalesce => $sorter, -as => 'in_device' } ],
-        order_by => [{ -desc => 'in_device' }, { -asc => [qw/ me.dns me.ip /] } ],
-        group_by => ['me.ip'],
-        join => 'device_ips',
-      }
-    );
+  );
 }
 
 =head2 search_for_device( $name or $ip or $prefix )
@@ -209,10 +207,10 @@ If no matching devices are found, C<undef> is returned.
 =cut
 
 sub search_for_device {
-    my ($rs, $q, $options) = @_;
-    $options ||= {};
-    $options->{partial} = 0;
-    return $rs->search_aliases($q, $options)->first();
+  my ($rs, $q, $options) = @_;
+  $options ||= {};
+  $options->{partial} = 0;
+  return $rs->search_aliases($q, $options)->first();
 }
 
 =head2 search_by_field( \%cond, \%attrs? )
@@ -289,97 +287,70 @@ OSI Layers which the device must support.
 =cut
 
 sub search_by_field {
-    my ($rs, $p, $attrs) = @_;
+  my ($rs, $p, $attrs) = @_;
 
-    die "condition parameter to search_by_field must be hashref\n"
-      if ref {} ne ref $p or 0 == scalar keys %$p;
+  die "condition parameter to search_by_field must be hashref\n" if ref {} ne ref $p or 0 == scalar keys %$p;
 
-    my $op = $p->{matchall} ? '-and' : '-or';
+  my $op = $p->{matchall} ? '-and' : '-or';
 
-    # 这是一个有点不优雅的技巧来捕获垃圾数据输入
-    # 同时避免返回表中的*所有*条目
-    if ($p->{ip} and 'NetAddr::IP::Lite' ne ref $p->{ip}) {
-      $p->{ip} = ( NetAddr::IP::Lite->new($p->{ip})
-        || NetAddr::IP::Lite->new('255.255.255.255') );
+  # 这是一个有点不优雅的技巧来捕获垃圾数据输入
+  # 同时避免返回表中的*所有*条目
+  if ($p->{ip} and 'NetAddr::IP::Lite' ne ref $p->{ip}) {
+    $p->{ip} = (NetAddr::IP::Lite->new($p->{ip}) || NetAddr::IP::Lite->new('255.255.255.255'));
+  }
+
+  # 用于层搜索
+  my $layers       = $p->{layers};
+  my @layer_select = ();
+  if (defined $layers && ref $layers) {
+    foreach my $layer (@$layers) {
+      next unless defined $layer and length($layer);
+      next if ($layer < 1 || $layer > 7);
+      push @layer_select, \['substring(me.layers,9-?, 1)::int = 1', $layer];
     }
+  }
+  elsif (defined $layers) {
+    push @layer_select, \['substring(me.layers,9-?, 1)::int = 1', $layers];
+  }
 
-    # 用于层搜索
-    my $layers = $p->{layers};
-    my @layer_select = ();
-    if ( defined $layers && ref $layers ) {
-      foreach my $layer (@$layers) {
-        next unless defined $layer and length($layer);
-        next if ( $layer < 1 || $layer > 7 );
-        push @layer_select,
-          \[ 'substring(me.layers,9-?, 1)::int = 1', $layer ];
-      }
-    }
-    elsif ( defined $layers ) {
-      push @layer_select,
-        \[ 'substring(me.layers,9-?, 1)::int = 1', $layers ];
-    }
+  # 获取IEEE MAC格式
+  my $mac = NetAddr::MAC->new(mac => ($p->{mac} || ''));
+  undef $mac
+    if ($mac and $mac->as_ieee and (($mac->as_ieee eq '00:00:00:00:00:00') or ($mac->as_ieee !~ m/^$RE{net}{MAC}$/i)));
 
-    # 获取IEEE MAC格式
-    my $mac = NetAddr::MAC->new(mac => ($p->{mac} || ''));
-    undef $mac if
-      ($mac and $mac->as_ieee
-      and (($mac->as_ieee eq '00:00:00:00:00:00')
-        or ($mac->as_ieee !~ m/^$RE{net}{MAC}$/i)));
+  my @joins = (($mac ? qw/ports/ : ()), (($p->{dns} or $p->{ip}) ? qw/device_ips/ : ()),);
 
-    my @joins = (
-      ($mac ? qw/ports/ : ()),
-      (($p->{dns} or $p->{ip}) ? qw/device_ips/ : ()),
-    );
+  return $rs->search_rs({}, $attrs)->search(
+    {
+      $op => [
+        ($p->{name}        ? ('me.name'        => {'-ilike' => "\%$p->{name}\%"})        : ()),
+        ($p->{location}    ? ('me.location'    => {'-ilike' => "\%$p->{location}\%"})    : ()),
+        ($p->{description} ? ('me.description' => {'-ilike' => "\%$p->{description}\%"}) : ()),
 
-    return $rs
-      ->search_rs({}, $attrs)
-      ->search({
-        $op => [
-          ($p->{name} ? ('me.name' =>
-            { '-ilike' => "\%$p->{name}\%" }) : ()),
-          ($p->{location} ? ('me.location' =>
-            { '-ilike' => "\%$p->{location}\%" }) : ()),
-          ($p->{description} ? ('me.description' =>
-            { '-ilike' => "\%$p->{description}\%" }) : ()),
+        ($mac ? (-or => ['me.mac' => $mac->as_ieee, 'ports.mac' => $mac->as_ieee,]) : ()),
 
-          ($mac ? (
-            -or => [
-              'me.mac' => $mac->as_ieee,
-              'ports.mac' => $mac->as_ieee,
-            ]) : ()),
+        ($p->{model}  ? ('me.model'  => {'-in' => $p->{model}})  : ()),
+        ($p->{os}     ? ('me.os'     => {'-in' => $p->{os}})     : ()),
+        ($p->{os_ver} ? ('me.os_ver' => {'-in' => $p->{os_ver}}) : ()),
+        ($p->{vendor} ? ('me.vendor' => {'-in' => $p->{vendor}}) : ()),
 
-          ($p->{model} ? ('me.model' =>
-            { '-in' => $p->{model} }) : ()),
-          ($p->{os} ? ('me.os' =>
-            { '-in' => $p->{os} }) : ()),
-          ($p->{os_ver} ? ('me.os_ver' =>
-            { '-in' => $p->{os_ver} }) : ()),
-          ($p->{vendor} ? ('me.vendor' =>
-            { '-in' => $p->{vendor} }) : ()),
+        ($p->{layers} ? (-or => \@layer_select) : ()),
 
-          ($p->{layers} ? (-or => \@layer_select) : ()),
+        (
+          $p->{dns}
+          ? (-or => ['me.dns' => {'-ilike' => "\%$p->{dns}\%"}, 'device_ips.dns' => {'-ilike' => "\%$p->{dns}\%"},])
+          : ()
+        ),
 
-          ($p->{dns} ? (
-            -or => [
-              'me.dns' => { '-ilike' => "\%$p->{dns}\%" },
-              'device_ips.dns' => { '-ilike' => "\%$p->{dns}\%" },
-            ]) : ()),
-
-          ($p->{ip} ? (
-            -or => [
-              'me.ip' => { '<<=' => $p->{ip}->cidr },
-              'device_ips.alias' => { '<<=' => $p->{ip}->cidr },
-            ]) : ()),
-        ],
-      },
-      {
-        order_by => [qw/ me.dns me.ip /],
-        ((scalar @joins) ? (
-          join => \@joins,
-          distinct => 1,
-        ) : ()),
-      }
-    );
+        (
+          $p->{ip}
+          ? (-or => ['me.ip' => {'<<=' => $p->{ip}->cidr}, 'device_ips.alias' => {'<<=' => $p->{ip}->cidr},])
+          : ()
+        ),
+      ],
+    },
+    {order_by => [qw/ me.dns me.ip /], ((scalar @joins) ? (join => \@joins, distinct => 1,) : ()),}
+  );
 }
 
 =head2 search_fuzzy( $value )
@@ -416,70 +387,46 @@ The following fields are inspected for a match:
 =cut
 
 sub search_fuzzy {
-    my ($rs, $q) = @_;
+  my ($rs, $q) = @_;
 
-    die "missing param to search_fuzzy\n"
-      unless $q;
-    $q = "\%$q\%" if $q !~ m/\%/;
-    (my $qc = $q) =~ s/\%//g;
+  die "missing param to search_fuzzy\n" unless $q;
+  $q = "\%$q\%" if $q !~ m/\%/;
+  (my $qc = $q) =~ s/\%//g;
 
-    # 基本IP检查是字符串匹配
-    my $ip_clause = [
-        'me.ip::text'  => { '-ilike' => $q },
-        'device_ips_by_address_or_name.alias::text' => { '-ilike' => $q },
-    ];
-    my $ipbind = '255.255.255.255/32';
+  # 基本IP检查是字符串匹配
+  my $ip_clause = ['me.ip::text' => {'-ilike' => $q}, 'device_ips_by_address_or_name.alias::text' => {'-ilike' => $q},];
+  my $ipbind    = '255.255.255.255/32';
 
-    # 但也允许前缀搜索
-    if ($qc =~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i
-        and my $ip = NetAddr::IP::Lite->new($qc)) {
+  # 但也允许前缀搜索
+  if ($qc =~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i and my $ip = NetAddr::IP::Lite->new($qc)) {
 
-        $ip_clause = [
-            'me.ip'  => { '<<=' => $ip->cidr },
-            'device_ips_by_address_or_name.alias' => { '<<=' => $ip->cidr },
-        ];
-        $ipbind = $ip->cidr;
-    }
+    $ip_clause = ['me.ip' => {'<<=' => $ip->cidr}, 'device_ips_by_address_or_name.alias' => {'<<=' => $ip->cidr},];
+    $ipbind    = $ip->cidr;
+  }
 
-    # 获取IEEE MAC格式
-    my $mac = NetAddr::MAC->new(mac => ($q || ''));
-    undef $mac if
-      ($mac and $mac->as_ieee
-      and (($mac->as_ieee eq '00:00:00:00:00:00')
-        or ($mac->as_ieee !~ m/^$RE{net}{MAC}$/i)));
-    $mac = ($mac ? $mac->as_ieee : $q);
+  # 获取IEEE MAC格式
+  my $mac = NetAddr::MAC->new(mac => ($q || ''));
+  undef $mac
+    if ($mac and $mac->as_ieee and (($mac->as_ieee eq '00:00:00:00:00:00') or ($mac->as_ieee !~ m/^$RE{net}{MAC}$/i)));
+  $mac = ($mac ? $mac->as_ieee : $q);
 
-    return $rs->ports_with_mac($mac)
-              ->device_ips_with_address_or_name($q, $ipbind)
-              ->search(
-      {
-        -or => [
-          'me.contact'     => { '-ilike' => $q },
-          'me.serial'      => { '-ilike' => $q },
-          'me.chassis_id'  => { '-ilike' => $q },
-          'me.location'    => { '-ilike' => $q },
-          'me.name'        => { '-ilike' => $q },
-          'me.description' => { '-ilike' => $q },
-          'me.ip' => { '-in' =>
-            $rs->search({ 'modules.serial' => $qc },
-                        { join => 'modules', columns => 'ip' })->as_query()
-          },
-          -or => [
-            'me.mac::text' => { '-ilike' => $mac},
-            'ports_by_mac.mac::text' => { '-ilike' => $mac},
-          ],
-          -or => [
-            'me.dns'      => { '-ilike' => $q },
-            'device_ips_by_address_or_name.dns' => { '-ilike' => $q },
-          ],
-          -or => $ip_clause,
-        ],
-      },
-      {
-        order_by => [qw/ me.dns me.ip /],
-        distinct => 1,
-      }
-    );
+  return $rs->ports_with_mac($mac)->device_ips_with_address_or_name($q, $ipbind)->search(
+    {
+      -or => [
+        'me.contact'     => {'-ilike' => $q},
+        'me.serial'      => {'-ilike' => $q},
+        'me.chassis_id'  => {'-ilike' => $q},
+        'me.location'    => {'-ilike' => $q},
+        'me.name'        => {'-ilike' => $q},
+        'me.description' => {'-ilike' => $q},
+        'me.ip' => {'-in' => $rs->search({'modules.serial' => $qc}, {join => 'modules', columns => 'ip'})->as_query()},
+        -or     => ['me.mac::text' => {'-ilike' => $mac}, 'ports_by_mac.mac::text' => {'-ilike' => $mac},],
+        -or     => ['me.dns' => {'-ilike' => $q}, 'device_ips_by_address_or_name.dns' => {'-ilike' => $q},],
+        -or     => $ip_clause,
+      ],
+    },
+    {order_by => [qw/ me.dns me.ip /], distinct => 1,}
+  );
 }
 
 =head2 carrying_vlan( \%cond, \%attrs? )
@@ -512,29 +459,23 @@ that are actually configured to carry the VLAN.
 =cut
 
 sub carrying_vlan {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "vlan number required for carrying_vlan\n"
-      if ref {} ne ref $cond or !exists $cond->{vlan};
+  die "vlan number required for carrying_vlan\n" if ref {} ne ref $cond or !exists $cond->{vlan};
 
-    return $rs unless $cond->{vlan};
+  return $rs unless $cond->{vlan};
 
-    return $rs
-      ->search_rs({ 'vlans.vlan' => $cond->{vlan} },
-        {
-          order_by => [qw/ me.dns me.ip /],
-          select => [{ count => 'ports.vlan' }],
-          as => ['pcount'],
-          columns  => [
-              'me.ip',     'me.dns',
-              'me.model',  'me.os',
-              'me.vendor', 'vlans.vlan',
-              'vlans.description'
-          ],
-          join => {'vlans' => 'ports'},
-          distinct => 1,
-        })
-      ->search({}, $attrs);
+  return $rs->search_rs(
+    {'vlans.vlan' => $cond->{vlan}},
+    {
+      order_by => [qw/ me.dns me.ip /],
+      select   => [{count => 'ports.vlan'}],
+      as       => ['pcount'],
+      columns  => ['me.ip', 'me.dns', 'me.model', 'me.os', 'me.vendor', 'vlans.vlan', 'vlans.description'],
+      join     => {'vlans' => 'ports'},
+      distinct => 1,
+    }
+  )->search({}, $attrs);
 }
 
 =head2 carrying_vlan_name( \%cond, \%attrs? )
@@ -568,29 +509,24 @@ that are actually configured to carry the VLAN.
 =cut
 
 sub carrying_vlan_name {
-    my ($rs, $cond, $attrs) = @_;
+  my ($rs, $cond, $attrs) = @_;
 
-    die "vlan name required for carrying_vlan_name\n"
-      if ref {} ne ref $cond or !exists $cond->{name};
+  die "vlan name required for carrying_vlan_name\n" if ref {} ne ref $cond or !exists $cond->{name};
 
-    $cond->{'vlans.vlan'} = { '>' => 0 };
-    $cond->{'vlans.description'} = { '-ilike' => delete $cond->{name} };
+  $cond->{'vlans.vlan'}        = {'>'      => 0};
+  $cond->{'vlans.description'} = {'-ilike' => delete $cond->{name}};
 
-    return $rs
-      ->search_rs({}, {
-        order_by => [qw/ me.dns me.ip /],
-        select => [{ count => 'ports.vlan' }],
-        as => ['pcount'],
-        columns  => [
-            'me.ip',     'me.dns',
-            'me.model',  'me.os',
-            'me.vendor', 'vlans.vlan',
-            'vlans.description'
-        ],
-        join => {'vlans' => 'ports'},
-        distinct => 1,
-      })
-      ->search($cond, $attrs);
+  return $rs->search_rs(
+    {},
+    {
+      order_by => [qw/ me.dns me.ip /],
+      select   => [{count => 'ports.vlan'}],
+      as       => ['pcount'],
+      columns  => ['me.ip', 'me.dns', 'me.model', 'me.os', 'me.vendor', 'vlans.vlan', 'vlans.description'],
+      join     => {'vlans' => 'ports'},
+      distinct => 1,
+    }
+  )->search($cond, $attrs);
 }
 
 =head2 has_layer( $layer )
@@ -610,12 +546,11 @@ The C<layer> parameter must be an integer between 1 and 7.
 =cut
 
 sub has_layer {
-    my ( $rs, $layer ) = @_;
+  my ($rs, $layer) = @_;
 
-    die "layer required and must be between 1 and 7\n"
-        if !$layer || $layer < 1 || $layer > 7;
+  die "layer required and must be between 1 and 7\n" if !$layer || $layer < 1 || $layer > 7;
 
-    return $rs->search_rs( \[ 'substring(layers,9-?, 1)::int = 1', $layer ] );
+  return $rs->search_rs(\['substring(layers,9-?, 1)::int = 1', $layer]);
 }
 
 =back
@@ -641,13 +576,16 @@ Netdisco database.
 
 sub get_platforms {
   my $rs = shift;
-  return $rs->search({}, {
-    'columns' => [ 'vendor', 'model' ],
-    '+select' => [{ count => 'ip' }],
-    '+as' => ['count'],
-    group_by => [qw/vendor model/],
-    order_by => [{-asc => 'vendor'}, {-asc => 'model'}],
-  });
+  return $rs->search(
+    {},
+    {
+      'columns' => ['vendor', 'model'],
+      '+select' => [{count => 'ip'}],
+      '+as'     => ['count'],
+      group_by  => [qw/vendor model/],
+      order_by  => [{-asc => 'vendor'}, {-asc => 'model'}],
+    }
+  );
 }
 
 =head2 get_releases
@@ -671,13 +609,16 @@ Netdisco database.
 
 sub get_releases {
   my $rs = shift;
-  return $rs->search({}, {
-    columns => ['os', 'os_ver'],
-    '+select' => [ { count => 'ip' } ],
-    '+as' => [qw/count/],
-    group_by => [qw/os os_ver/],
-    order_by => [{-asc => 'os'}, {-asc => 'os_ver'}],
-  })
+  return $rs->search(
+    {},
+    {
+      columns   => ['os', 'os_ver'],
+      '+select' => [{count => 'ip'}],
+      '+as'     => [qw/count/],
+      group_by  => [qw/os os_ver/],
+      order_by  => [{-asc => 'os'}, {-asc => 'os_ver'}],
+    }
+  );
 
 }
 
@@ -697,25 +638,21 @@ will add the following additional synthesized column to the result set:
 sub with_port_count {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+columns' => {
-          port_count =>
-            $rs->result_source->schema->resultset('DevicePort')
-              ->search(
-                {
-                  'dp.ip' => { -ident => 'me.ip' },
-                  'dp.type' => [ '-or' =>
-                    { '=' => undef },
-                    { '!~*' => '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)$' },
-                  ],
-                },
-                { alias => 'dp' }
-              )->count_rs->as_query,
-        },
-      });
+  return $rs->search_rs($cond, $attrs)->search(
+    {},
+    {
+      '+columns' => {
+        port_count => $rs->result_source->schema->resultset('DevicePort')->search(
+          {
+            'dp.ip'   => {-ident => 'me.ip'},
+            'dp.type' =>
+              ['-or' => {'=' => undef}, {'!~*' => '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)$'},],
+          },
+          {alias => 'dp'}
+        )->count_rs->as_query,
+      },
+    }
+  );
 }
 
 =head1 SPECIAL METHODS
@@ -727,13 +664,13 @@ handle the removal or archiving of nodes.
 
 =cut
 
-sub _plural { (shift || 0) == 1 ? 'entry' : 'entries' };
+sub _plural { (shift || 0) == 1 ? 'entry' : 'entries' }
 
 sub delete {
   my $self = shift;
 
-  my $schema = $self->result_source->schema;
-  my $devices = $self->search(undef, { columns => 'ip' });
+  my $schema  = $self->result_source->schema;
+  my $devices = $self->search(undef, {columns => 'ip'});
 
   my $ip = undef;
   {
@@ -744,43 +681,35 @@ sub delete {
   $ip = ((ref {} eq ref $ip) ? [%$ip]->[1] : $ip);
   $ip ||= 'netdisco';
 
-  foreach my $set (qw/
+  foreach my $set (
+    qw/
     Community
     DeviceBrowser
     DeviceIp
     DeviceModule
     DevicePower
     DeviceVlan
-  /) {
-      my $gone = $schema->resultset($set)->search(
-        { ip => { '-in' => $devices->as_query } },
-      )->delete;
+    /
+  ) {
+    my $gone = $schema->resultset($set)->search({ip => {'-in' => $devices->as_query}},)->delete;
 
-      Dancer::Logger::debug( sprintf( ' [%s] db/device - removed %d %s from %s',
-        $ip, $gone, _plural($gone), $set ) ) if defined Dancer::Logger::logger();
+    Dancer::Logger::debug(sprintf(' [%s] db/device - removed %d %s from %s', $ip, $gone, _plural($gone), $set))
+      if defined Dancer::Logger::logger();
   }
 
-  $schema->resultset('Admin')->search({
-    device => { '-in' => $devices->as_query },
-  })->delete;
+  $schema->resultset('Admin')->search({device => {'-in' => $devices->as_query},})->delete;
 
-  $schema->resultset('DeviceSkip')->search(
-    { device => { '-in' => $devices->as_query } },
-  )->delete;
+  $schema->resultset('DeviceSkip')->search({device => {'-in' => $devices->as_query}},)->delete;
 
-  my $gone = $schema->resultset('Topology')->search({
-    -or => [
-      { dev1 => { '-in' => $devices->as_query } },
-      { dev2 => { '-in' => $devices->as_query } },
-    ],
-  })->delete;
+  my $gone
+    = $schema->resultset('Topology')
+    ->search({-or => [{dev1 => {'-in' => $devices->as_query}}, {dev2 => {'-in' => $devices->as_query}},],})
+    ->delete;
 
-  Dancer::Logger::debug( sprintf( ' [%s] db/device - removed %d manual topology %s',
-    $ip, $gone, _plural($gone) ) ) if defined Dancer::Logger::logger();
+  Dancer::Logger::debug(sprintf(' [%s] db/device - removed %d manual topology %s', $ip, $gone, _plural($gone)))
+    if defined Dancer::Logger::logger();
 
-  $schema->resultset('DevicePort')->search(
-    { ip => { '-in' => $devices->as_query } },
-  )->delete(@_);
+  $schema->resultset('DevicePort')->search({ip => {'-in' => $devices->as_query}},)->delete(@_);
 
   # 现在让DBIC做它的事情
   return $self->next::method();

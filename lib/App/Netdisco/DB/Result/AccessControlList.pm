@@ -24,12 +24,9 @@ __PACKAGE__->table('access_control_list');
 # 定义表列
 # 包含ACL的ID、名称和规则数组
 __PACKAGE__->add_columns(
-  "id",
-  { data_type => "integer", is_nullable => 0, is_auto_increment => 1 },
-  "acl_name",
-  { data_type => "text", is_nullable => 1 },
-  "rules",
-  { data_type => "text[]", is_nullable => 0 },
+  "id",       {data_type => "integer", is_nullable => 0, is_auto_increment => 1},
+  "acl_name", {data_type => "text",    is_nullable => 1},
+  "rules",    {data_type => "text[]",  is_nullable => 0},
 );
 
 # 设置主键

@@ -13,10 +13,8 @@ __PACKAGE__->table("enterprise");
 # 定义表列
 # 包含企业号和对应的组织名称
 __PACKAGE__->add_columns(
-  "enterprise_number",
-  { data_type => "integer", is_nullable => 0 },
-  "organization",
-  { data_type => "text", is_nullable => 0 },
+  "enterprise_number", {data_type => "integer", is_nullable => 0},
+  "organization",      {data_type => "text",    is_nullable => 0},
 );
 
 # 设置主键

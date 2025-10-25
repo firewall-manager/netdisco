@@ -9,9 +9,9 @@ use strict;
 use warnings;
 
 __PACKAGE__->load_components(
-    qw/
-        +App::Netdisco::DB::ExplicitLocking
-        /
+  qw/
+    +App::Netdisco::DB::ExplicitLocking
+    /
 );
 
 =head1 ADDITIONAL METHODS
@@ -38,16 +38,17 @@ database.
 # 获取SSID列表
 # 返回SSID的排序列表，包括ssid、broadcast、count列
 sub get_ssids {
-    my $rs = shift;
+  my $rs = shift;
 
-    return $rs->search(
-        {},
-        {   select => [ 'ssid', 'broadcast', { count => 'ssid' } ],
-            as       => [qw/ ssid broadcast count /],
-            group_by => [qw/ ssid broadcast /],
-            order_by => { -desc => [qw/count/] },
-        }
-        )
+  return $rs->search(
+    {},
+    {
+      select   => ['ssid', 'broadcast', {count => 'ssid'}],
+      as       => [qw/ ssid broadcast count /],
+      group_by => [qw/ ssid broadcast /],
+      order_by => {-desc => [qw/count/]},
+    }
+  );
 
 }
 

@@ -8,9 +8,11 @@ use base 'App::Netdisco::DB::ResultSet';
 use strict;
 use warnings;
 
-__PACKAGE__->load_components(qw/
-  +App::Netdisco::DB::ExplicitLocking
-/);
+__PACKAGE__->load_components(
+  qw/
+    +App::Netdisco::DB::ExplicitLocking
+    /
+);
 
 =head1 ADDITIONAL METHODS
 
@@ -32,14 +34,8 @@ synthesized column to the result set:
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
-  return $rs
-    ->search_rs($cond, $attrs)
-    ->search({},
-      {
-        '+columns' => {
-          creation_stamp => \"to_char(creation, 'YYYY-MM-DD HH24:MI:SS')",
-        },
-      });
+  return $rs->search_rs($cond, $attrs)
+    ->search({}, {'+columns' => {creation_stamp => \"to_char(creation, 'YYYY-MM-DD HH24:MI:SS')",},});
 }
 
 1;

@@ -10,12 +10,12 @@ use NetAddr::MAC;
 use App::Netdisco::Util::Permission qw/acl_matches acl_matches_only/;
 
 use base 'Exporter';
-our @EXPORT = ();
+our @EXPORT    = ();
 our @EXPORT_OK = qw/
   check_mac
   is_nbtstatable
   store_arp
-/;
+  /;
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 =head1 NAME
@@ -73,19 +73,18 @@ sub check_mac {
   my ($node, $device, $port_macs) = @_;
   return 0 if !$node;
 
-  my $mac = NetAddr::MAC->new(mac => ($node || ''));
+  my $mac   = NetAddr::MAC->new(mac => ($node || ''));
   my $devip = ($device ? (ref $device ? $device->ip : $device) : '');
   $port_macs ||= {};
 
   # 不完整的MAC地址（BayRS帧中继DLCI等）
   if (!defined $mac or $mac->errstr) {
-      debug sprintf ' [%s] check_mac - mac [%s] malformed - skipping',
-        $devip, $node;
-      return 0;
+    debug sprintf ' [%s] check_mac - mac [%s] malformed - skipping', $devip, $node;
+    return 0;
   }
   else {
-      # 小写，十六进制，冒号分隔，8位组
-      $node = lc $mac->as_ieee;
+    # 小写，十六进制，冒号分隔，8位组
+    $node = lc $mac->as_ieee;
   }
 
   # 广播MAC地址
@@ -99,30 +98,26 @@ sub check_mac {
 
   # 多播地址
   if ($mac->is_multicast and not $mac->is_msnlb) {
-      debug sprintf ' [%s] check_mac - multicast mac [%s] - skipping',
-        $devip, $node;
-      return 0;
+    debug sprintf ' [%s] check_mac - multicast mac [%s] - skipping', $devip, $node;
+    return 0;
   }
 
   # VRRP
   if ($mac->is_vrrp) {
-      debug sprintf ' [%s] check_mac - VRRP mac [%s] - skipping',
-        $devip, $node;
-      return 0;
+    debug sprintf ' [%s] check_mac - VRRP mac [%s] - skipping', $devip, $node;
+    return 0;
   }
 
   # HSRP
   if ($mac->is_hsrp or $mac->is_hsrp2) {
-      debug sprintf ' [%s] check_mac - HSRP mac [%s] - skipping',
-        $devip, $node;
-      return 0;
+    debug sprintf ' [%s] check_mac - HSRP mac [%s] - skipping', $devip, $node;
+    return 0;
   }
 
   # 设备自己的MAC地址
   if ($port_macs and exists $port_macs->{$node}) {
-      debug sprintf ' [%s] check_mac - mac [%s] is device port - skipping',
-        $devip, $node;
-      return 0;
+    debug sprintf ' [%s] check_mac - mac [%s] is device port - skipping', $devip, $node;
+    return 0;
   }
 
   return $node;
@@ -194,51 +189,54 @@ sub store_arp {
 
   # 在事务中处理ARP条目存储
   schema(vars->{'tenant'})->txn_do(sub {
+
     # 将旧条目标记为非活动
-    schema(vars->{'tenant'})->resultset('NodeIp')
-      ->search(
-        { ip => $ip, -bool => 'active'},
-        { columns => [qw/mac ip vrf/] })->update({active => \'false'});
+    schema(vars->{'tenant'})
+      ->resultset('NodeIp')
+      ->search({ip     => $ip, -bool => 'active'}, {columns => [qw/mac ip vrf/]})
+      ->update({active => \'false'});
 
     # 创建或更新新条目
-    my $row = schema(vars->{'tenant'})->resultset('NodeIp')
+    my $row
+      = schema(vars->{'tenant'})
+      ->resultset('NodeIp')
       ->update_or_new(
-      {
-        mac => $mac->as_ieee,
-        ip => $ip,
-        vrf => $vrf,
-        dns => $name,
-        active => \'true',
-        time_last => \$now
-      },
-      {
-        key => 'primary',
-        for => 'update',
-      });
+      {mac => $mac->as_ieee, ip  => $ip, vrf => $vrf, dns => $name, active => \'true', time_last => \$now},
+      {key => 'primary',     for => 'update',});
 
-    if (! $row->in_storage) {
+    if (!$row->in_storage) {
       $row->set_column(time_first => \$now);
 
       if ($device_ip) {
+
         # 初始化跟踪，将首次和最后时间戳设置为现在
-        $row->set_column(seen_on_router_first => \[qq{jsonb_build_object(?::text, $now)}, $device_ip ]);
-        $row->set_column(seen_on_router_last =>  \[qq{jsonb_build_object(?::text, $now)}, $device_ip ]);
+        $row->set_column(seen_on_router_first => \[qq{jsonb_build_object(?::text, $now)}, $device_ip]);
+        $row->set_column(seen_on_router_last  => \[qq{jsonb_build_object(?::text, $now)}, $device_ip]);
       }
 
       $row->insert;
     }
     else {
       if ($device_ip) {
+
         # 设置或更新此路由器的最后看到时间为现在
-        $row->set_column(seen_on_router_last => \[qq{
-          jsonb_set(seen_on_router_last, ?, to_jsonb($now))} => (qq!{$device_ip}!) ]);
+        $row->set_column(
+          seen_on_router_last => \[
+            qq{
+          jsonb_set(seen_on_router_last, ?, to_jsonb($now))} => (qq!{$device_ip}!)
+          ]
+        );
 
         # 如果是首次看到则添加首次看到时间，否则无操作
-        $row->set_column(seen_on_router_first => \[qq{
+        $row->set_column(
+          seen_on_router_first => \[
+            qq{
           CASE WHEN (seen_on_router_first->?) IS NOT NULL
             THEN seen_on_router_first
             ELSE jsonb_set(seen_on_router_first, ?, to_jsonb($now)) 
-          END } => ($device_ip, qq!{$device_ip}!) ]);
+          END } => ($device_ip, qq!{$device_ip}!)
+          ]
+        );
 
         $row->update;
       }
