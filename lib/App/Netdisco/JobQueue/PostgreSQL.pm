@@ -1,5 +1,8 @@
 package App::Netdisco::JobQueue::PostgreSQL;
 
+# PostgreSQL作业队列模块
+# 提供基于PostgreSQL的作业队列管理功能
+
 use Dancer qw/:moose :syntax :script/;
 use Dancer::Plugin::DBIC 'schema';
 
@@ -27,6 +30,8 @@ our @EXPORT_OK = qw/
 /;
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
+# 预热推进器
+# 在后端重启时清理和重置设备跳过列表
 sub jq_warm_thrusters {
   my $rs = schema(vars->{'tenant'})->resultset('DeviceSkip');
 
@@ -35,8 +40,7 @@ sub jq_warm_thrusters {
       backend => setting('workers')->{'BACKEND'},
     }, { for => 'update' }, )->update({ actionset => [] });
 
-    # on backend restart, allow one retry of all devices which have
-    # reached max retry (max_deferrals)
+    # 在后端重启时，允许所有已达到最大重试次数的设备重试一次
     my $deferrals = setting('workers')->{'max_deferrals'} - 1;
     $rs->search({
       backend => setting('workers')->{'BACKEND'},
@@ -46,20 +50,22 @@ sub jq_warm_thrusters {
 
     $rs->search({
       backend => setting('workers')->{'BACKEND'},
-      actionset => { -value => [] }, # special syntax for matching empty ARRAY
+      actionset => { -value => [] }, # 匹配空数组的特殊语法
       deferrals => 0,
     })->delete;
 
-    # also clean out any previous backend hint
-    # primeskiplist action will then run to recreate it
+    # 也清理任何之前的下端提示
+    # primeskiplist操作将运行以重新创建它
     $rs->search({
       backend => setting('workers')->{'BACKEND'},
       device => '255.255.255.255',
-      actionset => { -value => [] }, # special syntax for matching empty ARRAY
+      actionset => { -value => [] }, # 匹配空数组的特殊语法
     })->delete;
   });
 }
 
+# 获取一些作业
+# 从队列中获取指定数量的作业，处理重复作业和设备权限检查
 sub jq_getsome {
   my $num_slots = shift;
   return () unless $num_slots and $num_slots > 0;
@@ -78,10 +84,9 @@ sub jq_getsome {
     if ($job->device
       and not scalar grep {$job->action eq $_} @{ setting('job_targets_prefix') }) {
 
-      # need to handle device discovered since backend daemon started
-      # and the skiplist was primed. these should be checked against
-      # the various acls and have device_skip entry added if needed,
-      # and return false if it should have been skipped.
+      # 需要处理自后端守护进程启动以来发现的设备
+      # 并且跳转列表已被初始化。这些应该根据各种ACL进行检查
+      # 并在需要时添加device_skip条目，如果应该跳过则返回false
       my @badactions = get_denied_actions($job->device);
       if (scalar @badactions) {
         schema(vars->{'tenant'})->resultset('DeviceSkip')->txn_do_locked(EXCLUSIVE, sub {
@@ -90,18 +95,16 @@ sub jq_getsome {
             },{ key => 'device_skip_pkey' })->add_to_actionset(@badactions);
         });
 
-        # will now not be selected in a future _getsome()
+        # 现在在未来的_getsome()中不会被选中
         next if scalar grep {$_ eq $job->action} @badactions;
       }
     }
 
-    # remove any duplicate jobs, incuding possibly this job if there
-    # is already an equivalent job running
+    # 移除任何重复的作业，包括如果已有等效作业运行时的此作业
 
-    # note that the self-removal of a job has an unhelpful log: it is
-    # reported as a duplicate of itself! however what's happening is that
-    # netdisco has seen another running job with same params (but the query
-    # cannot see that ID to use it in the message).
+    # 注意作业的自移除有一个无用的日志：它被报告为自身的重复！
+    # 但是发生的情况是netdisco已经看到了另一个具有相同参数的运行作业
+    # （但查询无法看到该ID以在消息中使用它）
 
     my %job_properties = (
       action => $job->action,
@@ -111,7 +114,7 @@ sub jq_getsome {
         { device => $job->device },
         ($job->device_key ? ({ device_key => $job->device_key }) : ()),
       ],
-      # never de-duplicate user-submitted jobs
+      # 永远不要对用户提交的作业进行去重
       username => { '=' => undef },
       userip   => { '=' => undef },
     );
@@ -143,6 +146,8 @@ sub jq_getsome {
   return @returned;
 }
 
+# 获取锁定的作业
+# 返回当前后端锁定的作业列表
 sub jq_locked {
   my @returned = ();
   my $rs = schema(vars->{'tenant'})->resultset('Admin')->search({
@@ -157,6 +162,8 @@ sub jq_locked {
   return @returned;
 }
 
+# 获取排队的作业
+# 返回指定类型作业的设备列表
 sub jq_queued {
   my $job_type = shift;
 
@@ -167,12 +174,14 @@ sub jq_queued {
   })->get_column('device')->all;
 }
 
+# 锁定作业
+# 锁定数据库行并更新以显示作业已被选取
 sub jq_lock {
   my $job = shift;
   return true unless $job->id;
   my $happy = false;
 
-  # lock db row and update to show job has been picked
+  # 锁定数据库行并更新以显示作业已被选取
   try {
     my $updated = schema(vars->{'tenant'})->resultset('Admin')
       ->search({ job => $job->id, status => 'queued' }, { for => 'update' })
@@ -191,20 +200,19 @@ sub jq_lock {
   return $happy;
 }
 
+# 延迟作业
+# 将作业标记为延迟，增加设备的延迟计数
 sub jq_defer {
   my $job = shift;
   my $happy = false;
 
-  # note this taints all actions on the device. for example if both
-  # macsuck and arpnip are allowed, but macsuck fails 10 times, then
-  # arpnip (and every other action) will be prevented on the device.
+  # 注意这会污染设备上的所有操作。例如，如果macsuck和arpnip都被允许，
+  # 但macsuck失败10次，那么arpnip（以及所有其他操作）将在设备上被阻止
 
-  # seeing as defer is only triggered by an SNMP connect failure, this
-  # behaviour seems reasonable, to me (or desirable, perhaps).
+  # 考虑到延迟仅由SNMP连接失败触发，这种行为似乎是合理的（或者可能是可取的）
 
-  # the deferrable_actions setting exists as a workaround to this behaviour
-  # should it be needed by any action (that is, per-device action but
-  # do not increment deferrals count and simply try to run again).
+  # deferrable_actions设置作为此行为的变通方法存在
+  # 如果任何操作需要（即每个设备的操作但不增加延迟计数并简单地重试）
 
   try {
     schema(vars->{'tenant'})->resultset('DeviceSkip')->txn_do_locked(EXCLUSIVE, sub {
@@ -219,11 +227,11 @@ sub jq_defer {
 
       debug sprintf 'defer: job %s', ($job->id || 'unknown');
 
-      # lock db row and update to show job is available
+      # 锁定数据库行并更新以显示作业可用
       schema(vars->{'tenant'})->resultset('Admin')
         ->search({ job => $job->id }, { for => 'update' })
         ->update({
-            device => $job->device, # if job had alias this sets to canonical
+            device => $job->device, # 如果作业有别名，这将设置为规范形式
             status => 'queued',
             backend => undef,
             started => undef,
@@ -239,15 +247,16 @@ sub jq_defer {
   return $happy;
 }
 
+# 完成作业
+# 锁定数据库行并更新以显示作业已完成/错误
 sub jq_complete {
   my $job = shift;
   my $happy = false;
 
-  # lock db row and update to show job is done/error
+  # 锁定数据库行并更新以显示作业已完成/错误
 
-  # now that SNMP connect failures are deferrals and not errors, any complete
-  # status, whether success or failure, indicates an SNMP connect. reset the
-  # connection failures counter to forget about occasional connect glitches.
+  # 现在SNMP连接失败是延迟而不是错误，任何完成状态，
+  # 无论成功还是失败，都表示SNMP连接。重置连接失败计数器以忘记偶尔的连接故障
 
   try {
     schema(vars->{'tenant'})->resultset('DeviceSkip')->txn_do_locked(EXCLUSIVE, sub {
@@ -280,6 +289,8 @@ sub jq_complete {
   return $happy;
 }
 
+# 获取作业日志
+# 根据各种参数搜索和过滤作业日志
 sub jq_log {
   return schema(vars->{'tenant'})->resultset('Admin')->search({
     (param('backend') ? ('me.backend' => param('backend')) : ()),
@@ -327,6 +338,8 @@ sub jq_log {
   })->with_times->hri->all;
 }
 
+# 获取用户日志
+# 返回指定用户的作业日志
 sub jq_userlog {
   my $user = shift;
   return schema(vars->{'tenant'})->resultset('Admin')->search({
@@ -336,6 +349,8 @@ sub jq_userlog {
   })->with_times->all;
 }
 
+# 插入作业
+# 将作业插入到队列中，支持内联操作和自定义字段更新
 sub jq_insert {
   my $jobs = shift;
   $jobs = [$jobs] if ref [] ne ref $jobs;
@@ -346,7 +361,7 @@ sub jq_insert {
       if (scalar @$jobs == 1 and defined $jobs->[0]->{device} and
           scalar grep {$_ eq $jobs->[0]->{action}} @{ setting('_inline_actions') || [] }) {
 
-          # bit of a hack for heroku hosting to avoid DB overload
+          # 对于heroku托管来说有点hack，以避免数据库过载
           return true if setting('defanged_admin') ne 'admin';
 
           my $spec = $jobs->[0];
@@ -406,6 +421,8 @@ sub jq_insert {
   return $happy;
 }
 
+# 删除作业
+# 删除指定的作业或所有非primeskiplist作业
 sub jq_delete {
   my $id = shift;
 

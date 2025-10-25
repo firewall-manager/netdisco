@@ -1,5 +1,8 @@
 package App::Netdisco::Backend::Role::Manager;
 
+# 管理器角色模块
+# 提供作业队列管理和分发功能
+
 use Dancer qw/:moose :syntax :script/;
 
 use List::Util 'sum';
@@ -13,6 +16,8 @@ use App::Netdisco::JobQueue
 use Role::Tiny;
 use namespace::clean;
 
+# 工作进程开始
+# 初始化管理器工作进程，预热作业队列并重新排队本地作业
 sub worker_begin {
   my $self = shift;
   my $wid = $self->wid;
@@ -22,15 +27,15 @@ sub worker_begin {
 
   debug "entering Manager ($wid) worker_begin()";
 
-  # job queue initialisation
-  # the expensive parts of this were moved to primeskiplist job
+  # 作业队列初始化
+  # 昂贵部分已移至primeskiplist作业
   jq_warm_thrusters;
 
-  # queue a job to rebuild the device action skip list
+  # 排队一个作业以重建设备操作跳过列表
   $self->{queue}->enqueuep(200,
     App::Netdisco::Backend::Job->new({ job => 0, action => 'primeskiplist' }));
 
-  # requeue jobs locally
+  # 本地重新排队作业
   debug "mgr ($wid): searching for jobs booked to this processing node";
   my @jobs = jq_locked;
 
@@ -41,9 +46,9 @@ sub worker_begin {
   }
 }
 
-# creates a 'signature' for each job so that we can check for duplicates ...
-# it happens from time to time due to the distributed nature of the job queue
-# and manager(s) - also kinder to the DB to skip here rather than jq_lock()
+# 为每个作业创建"签名"以便检查重复...
+# 由于作业队列和管理器的分布式特性，这种情况时有发生
+# 在这里跳过比在jq_lock()中跳过对数据库更友好
 my $memoize = sub {
   no warnings 'uninitialized';
   my $job = shift;
@@ -51,6 +56,8 @@ my $memoize = sub {
     (qw/action port subaction/, ($job->{device_key} ? 'device_key' : 'device'));
 };
 
+# 工作进程主体
+# 管理器的主要工作循环，负责从队列获取作业并分发给工作进程
 sub worker_body {
   my $self = shift;
   my $wid = $self->wid;
@@ -65,8 +72,8 @@ sub worker_body {
       my $num_slots = 0;
       my %seen_job = ();
 
-      # this does have a race condition, but the jobs we're protecting
-      # against are likely to be long running
+      # 这确实存在竞态条件，但我们保护的作业
+      # 可能是长时间运行的
       my $t = Proc::ProcessTable->new( 'enable_ttys' => 0 );
 
       $num_slots = parse_max_workers( setting('workers')->{tasks} )
@@ -82,7 +89,7 @@ sub worker_body {
               next JOB;
           }
 
-          # 1392 check for any of the same job running already
+          # 1392检查是否有相同的作业已在运行
           if ($job->device) {
               foreach my $p ( @{$t->table} ) {
                   if ($p->cmndline
@@ -93,12 +100,12 @@ sub worker_body {
               }
           }
 
-          # mark job as running
+          # 标记作业为运行中
           jq_lock($job) or next JOB;
           info sprintf "mgr (%s): job %s booked out for this processing node",
             $wid, $job->id;
 
-          # copy job to local queue
+          # 将作业复制到本地队列
           $self->{queue}->enqueuep($job->job_priority, $job);
       }
 

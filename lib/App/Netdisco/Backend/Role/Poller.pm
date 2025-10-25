@@ -1,5 +1,8 @@
 package App::Netdisco::Backend::Role::Poller;
 
+# 轮询器角色模块
+# 提供作业执行和轮询功能
+
 use Dancer qw/:moose :syntax :script/;
 
 use Try::Tiny;
@@ -11,11 +14,15 @@ use App::Netdisco::JobQueue qw/jq_defer jq_complete/;
 use Role::Tiny;
 use namespace::clean;
 
-# add dispatch methods for poller tasks
+# 为轮询器任务添加分发方法
 with 'App::Netdisco::Worker::Runner';
 
+# 工作进程开始
+# 记录工作进程启动时间
 sub worker_begin { (shift)->{started} = time }
 
+# 工作进程主体
+# 轮询器的主要工作循环，从队列获取作业并执行
 sub worker_body {
   my $self = shift;
   my $wid = $self->wid;
@@ -42,10 +49,12 @@ sub worker_body {
 
       $self->close_job($job);
       sleep( setting('workers')->{'min_runtime'} || 0 );
-      $self->exit(0); # recycle worker
+      $self->exit(0); # 回收工作进程
   }
 }
 
+# 关闭作业
+# 完成作业处理，根据状态决定是延迟还是完成
 sub close_job {
   my ($self, $job) = @_;
   my $now  = scalar localtime;
