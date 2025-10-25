@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::NodeNbt;
+
+# 节点NetBIOS结果集类
+# 提供节点NetBIOS相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -8,6 +12,7 @@ __PACKAGE__->load_components(qw/
   +App::Netdisco::DB::ExplicitLocking
 /);
 
+# 搜索属性配置，按最后时间排序并连接制造商表
 my $search_attr = {
     order_by => {'-desc' => 'time_last'},
     '+columns' => [
@@ -33,6 +38,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带时间戳
+# 为任何search()添加时间相关的合成列
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
@@ -82,7 +89,7 @@ sub search_by_ip {
     die "ip address required for search_by_ip\n"
       if ref {} ne ref $cond or !exists $cond->{ip};
 
-    # handle either plain text IP or NetAddr::IP (/32 or CIDR)
+    # 处理纯文本IP或NetAddr::IP（/32或CIDR）
     my ($op, $ip) = ('=', delete $cond->{ip});
 
     if ('NetAddr::IP::Lite' eq ref $ip and $ip->num > 1) {

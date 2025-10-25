@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::Node;
+
+# 节点结果集类
+# 提供节点相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -44,6 +48,8 @@ To limit results only to active nodes, set C<< {active => 1} >> in C<cond>.
 
 =cut
 
+# 按MAC地址搜索
+# 返回匹配的节点记录，按最后时间排序
 sub search_by_mac {
     my ($rs, $cond, $attrs) = @_;
 
@@ -97,15 +103,15 @@ sub delete {
       $schema->resultset('NodeWireless')
         ->search({ mac => { '-in' => $nodes->as_query }})->delete;
 
-      # avoid letting DBIC delete nodes
+      # 避免让DBIC删除节点
       return 0E0;
   }
   elsif (exists $opts->{only_nodes} and $opts->{only_nodes}) {
-      # now let DBIC do its thing
+      # 现在让DBIC做它的事情
       return $self->next::method();
   }
   elsif (exists $opts->{keep_nodes} and $opts->{keep_nodes}) {
-      # avoid letting DBIC delete nodes
+      # 避免让DBIC删除节点
       return 0E0;
   }
   else {
@@ -119,8 +125,7 @@ sub delete {
           )->delete;
       }
 
-      # for node_ip only delete if there are no longer
-      # any nodes referencing the IP.
+      # 对于node_ip，只有在没有节点引用该IP时才删除
 
       my @mac_restrict_aq     = @{${ $nodes->as_query }};
       my @macport_restrict_aq = @{${ $nodes->search(undef, { '+columns' => 'port' })->as_query }};
@@ -144,7 +149,7 @@ SQL
         , undef, (map {$_->[1]} (@macport_restrict_aq, @mac_restrict_aq)));
       });
 
-      # now let DBIC do its thing
+      # 现在让DBIC做它的事情
       return $self->next::method();
   }
 }

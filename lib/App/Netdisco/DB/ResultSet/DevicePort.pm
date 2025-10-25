@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::DevicePort;
+
+# 设备端口结果集类
+# 提供设备端口相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -26,6 +30,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带时间戳
+# 为任何search()添加时间相关的合成列
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
@@ -57,6 +63,8 @@ C<weeks>, C<months> or C<years>.
 
 =cut
 
+# 带空闲状态
+# 为任何search()添加空闲状态相关的合成列
 sub with_is_free {
   my ($rs, $cond, $attrs) = @_;
 
@@ -67,7 +75,7 @@ sub with_is_free {
     ->search({},
       {
         '+columns' => { is_free =>
-          # NOTE this query is in `git grep 'THREE PLACES'`
+          # 注意：此查询在`git grep 'THREE PLACES'`中
           \["me.up_admin = 'up' AND me.up != 'up' AND "
               ."(me.type IS NULL OR me.type !~* '^(53|ieee8023adLag|propVirtual|l2vlan|l3ipvlan|135|136|137)\$') AND "
               ."((age(LOCALTIMESTAMP, to_timestamp(extract(epoch from device.last_discover) - (device.uptime/100))::timestamp) < ?::interval "
@@ -89,6 +97,8 @@ C<weeks>, C<months> or C<years>.
 
 =cut
 
+# 仅空闲端口
+# 基于端口是否被认为是"空闲"来限制结果
 sub only_free_ports {
   my ($rs, $cond, $attrs) = @_;
 
@@ -98,7 +108,7 @@ sub only_free_ports {
     ->search_rs($cond, $attrs)
     ->search(
       {
-        # NOTE this query is in `git grep 'THREE PLACES'`
+        # 注意：此查询在`git grep 'THREE PLACES'`中
         'me.up_admin' => 'up',
         'me.up'       => { '!=' => 'up' },
         'me.type' => [ '-or' =>
@@ -144,6 +154,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带属性
+# 为任何search()添加端口属性相关的合成列
 sub with_properties {
   my ($rs, $cond, $attrs) = @_;
 
@@ -199,6 +211,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带远程清单
+# 为任何search()添加远程设备清单相关的合成列
 sub with_remote_inventory {
   my ($rs, $cond, $attrs) = @_;
 
@@ -232,6 +246,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带VLAN计数
+# 为任何search()添加VLAN计数相关的合成列
 sub with_vlan_count {
   my ($rs, $cond, $attrs) = @_;
 
@@ -296,7 +312,7 @@ sub delete {
     { switch => { '-in' => $ports->as_query }},
   )->delete(@_);
 
-  # now let DBIC do its thing
+  # 现在让DBIC做它的事情
   return $self->next::method();
 }
 

@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::Admin;
+
+# 管理员结果集类
+# 提供管理员相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -21,14 +25,16 @@ C<retry_after> when devices will be retried once (disabled if 0/undef passed).
 
 =cut
 
+# 跳过的设备
+# 返回适用于某些作业的device_skip条目集合的相关子查询
 sub skipped {
   my ($rs, $backend, $max_deferrals, $retry) = @_;
   $backend ||= 'fqdn-undefined';
-  $max_deferrals ||= (2**30); # not really 'disabled'
-  $retry ||= '100 years'; # not really 'disabled'
+  $max_deferrals ||= (2**30); # 不是真正的"禁用"
+  $retry ||= '100 years'; # 不是真正的"禁用"
 
   return $rs->correlate('device_skips')->search(undef,{
-    # NOTE: bind param list order is significant
+    # 注意：绑定参数列表顺序很重要
     bind => [[deferrals => $max_deferrals], [last_defer => $retry], [backend => $backend]],
   });
 }
@@ -52,6 +58,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带时间戳
+# 为任何search()添加时间相关的合成列
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 

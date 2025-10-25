@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::NodeIp;
+
+# 节点IP结果集类
+# 提供节点IP相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -8,6 +12,7 @@ __PACKAGE__->load_components(qw/
   +App::Netdisco::DB::ExplicitLocking
 /);
 
+# 按最后时间排序并连接制造商表的配置
 my $order_by_time_last_and_join_manufacturer = {
     order_by => {'-desc' => 'time_last'},
     '+columns' => [
@@ -34,6 +39,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带时间戳
+# 为任何search()添加时间相关的合成列
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
@@ -57,6 +64,8 @@ will add the following additional synthesized column to the result set:
 
 =cut
 
+# 带路由器信息
+# 为任何search()添加路由器相关的合成列
 sub with_router {
   my ($rs, $cond, $attrs) = @_;
 
@@ -112,7 +121,7 @@ sub search_by_ip {
     die "ip address required for search_by_ip\n"
       if ref {} ne ref $cond or !exists $cond->{ip};
 
-    # handle either plain text IP or NetAddr::IP (/32 or CIDR)
+    # 处理纯文本IP或NetAddr::IP（/32或CIDR）
     my ($op, $ip) = ('=', delete $cond->{ip});
 
     if ('NetAddr::IP::Lite' eq ref $ip and $ip->num > 1) {
@@ -182,9 +191,11 @@ sub search_by_dns {
 
     my $dns_field = delete $cond->{dns};
 
+    # 处理正则表达式后缀
     (my $suffix = ($cond->{suffix} || ''))
       =~ s|\Q(?^\E[-xismu]*|(?|g;
 
+    # 处理DNS字段匹配逻辑
     if (q{} eq ref $dns_field and exists $cond->{suffix}) {
         (my $stripped_dns_field = $dns_field) =~ s/\.\%$//;
         (my $fqdn_field = $stripped_dns_field) .= '%';

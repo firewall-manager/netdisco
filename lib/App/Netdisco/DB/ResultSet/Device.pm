@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::Device;
+
+# 设备结果集类
+# 提供设备相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -21,12 +25,14 @@ C<ILIKE>.
 
 =cut
 
+# 设备IP地址或名称
+# 返回每个设备的device_ip条目集合的相关子查询
 sub device_ips_with_address_or_name {
   my ($rs, $q, $ipbind) = @_;
   $q ||= '255.255.255.255/32';
 
   return $rs->search(undef,{
-    # NOTE: bind param list order is significant
+    # 注意：绑定参数列表顺序很重要
     join => ['device_ips_by_address_or_name'],
     bind => [$q, $ipbind, $q],
   });
@@ -39,6 +45,8 @@ C<module_serials> relation.
 
 =cut
 
+# 带模块序列号
+# 使用module_serials关系将module_serials.serial字段添加到结果中
 sub with_module_serials {
   my $rs = shift;
   return $rs->search(undef, {
@@ -56,12 +64,14 @@ device. The port MAC address matches the supplied C<mac>, using C<ILIKE>.
 
 =cut
 
+# 带MAC地址的端口
+# 返回每个设备的device_port条目集合的相关子查询
 sub ports_with_mac {
   my ($rs, $mac) = @_;
   $mac ||= '00:00:00:00:00:00';
 
   return $rs->search(undef,{
-    # NOTE: bind param list order is significant
+    # 注意：绑定参数列表顺序很重要
     join => ['ports_by_mac'],
     bind => [$mac],
   });
@@ -96,6 +106,8 @@ will add the following additional synthesized columns to the result set:
 
 =cut
 
+# 带时间戳
+# 为任何search()添加时间相关的合成列
 sub with_times {
   my ($rs, $cond, $attrs) = @_;
 
@@ -139,14 +151,14 @@ sub search_aliases {
     $options ||= {};
     $options->{partial} = 1 if !defined $options->{partial};
 
-    # rough approximation of IP addresses (v4 in v6 not supported).
-    # this helps us avoid triggering any DNS.
+    # IP地址的粗略近似（不支持v4在v6中）
+    # 这有助于我们避免触发任何DNS
     my $by_ip = ($q =~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i) ? 1 : 0;
 
     my ($clause, $sorter);
     if ($by_ip) {
         my $ip = NetAddr::IP::Lite->new($q)
-          or return undef; # could be a MAC address!
+          or return undef; # 可能是MAC地址！
         $clause = [
             'me.ip'  => { '<<=' => $ip->cidr },
             'device_ips.alias' => { '<<=' => $ip->cidr },
@@ -284,14 +296,14 @@ sub search_by_field {
 
     my $op = $p->{matchall} ? '-and' : '-or';
 
-    # this is a bit of an inelegant trick to catch junk data entry,
-    # whilst avoiding returning *all* entries in the table
+    # 这是一个有点不优雅的技巧来捕获垃圾数据输入
+    # 同时避免返回表中的*所有*条目
     if ($p->{ip} and 'NetAddr::IP::Lite' ne ref $p->{ip}) {
       $p->{ip} = ( NetAddr::IP::Lite->new($p->{ip})
         || NetAddr::IP::Lite->new('255.255.255.255') );
     }
 
-    # For Search on Layers
+    # 用于层搜索
     my $layers = $p->{layers};
     my @layer_select = ();
     if ( defined $layers && ref $layers ) {
@@ -307,7 +319,7 @@ sub search_by_field {
         \[ 'substring(me.layers,9-?, 1)::int = 1', $layers ];
     }
 
-    # get IEEE MAC format
+    # 获取IEEE MAC格式
     my $mac = NetAddr::MAC->new(mac => ($p->{mac} || ''));
     undef $mac if
       ($mac and $mac->as_ieee
@@ -411,14 +423,14 @@ sub search_fuzzy {
     $q = "\%$q\%" if $q !~ m/\%/;
     (my $qc = $q) =~ s/\%//g;
 
-    # basic IP check is a string match
+    # 基本IP检查是字符串匹配
     my $ip_clause = [
         'me.ip::text'  => { '-ilike' => $q },
         'device_ips_by_address_or_name.alias::text' => { '-ilike' => $q },
     ];
     my $ipbind = '255.255.255.255/32';
 
-    # but also allow prefix search
+    # 但也允许前缀搜索
     if ($qc =~ m{^(?:$RE{net}{IPv4}|$RE{net}{IPv6})(?:/\d+)?$}i
         and my $ip = NetAddr::IP::Lite->new($qc)) {
 
@@ -429,7 +441,7 @@ sub search_fuzzy {
         $ipbind = $ip->cidr;
     }
 
-    # get IEEE MAC format
+    # 获取IEEE MAC格式
     my $mac = NetAddr::MAC->new(mac => ($q || ''));
     undef $mac if
       ($mac and $mac->as_ieee
@@ -770,7 +782,7 @@ sub delete {
     { ip => { '-in' => $devices->as_query } },
   )->delete(@_);
 
-  # now let DBIC do its thing
+  # 现在让DBIC做它的事情
   return $self->next::method();
 }
 

@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::DevicePower;
+
+# 设备电源结果集类
+# 提供设备电源相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -43,6 +47,8 @@ Total power as measured on ports actively supplying power.
 
 =cut
 
+# 带PoE统计
+# 为任何search()添加PoE统计相关的合成列
 sub with_poestats {
   my ($rs, $cond, $attrs) = @_;
 

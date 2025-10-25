@@ -1,4 +1,8 @@
 package App::Netdisco::DB::ResultSet::DeviceModule;
+
+# 设备模块结果集类
+# 提供设备模块相关的数据库查询功能
+
 use base 'App::Netdisco::DB::ResultSet';
 
 use strict;
@@ -61,6 +65,8 @@ List of Device IPs containing modules.
 
 =cut
 
+# 按字段搜索
+# 支持Web表单的智能设备模块搜索功能
 sub search_by_field {
     my ( $rs, $p, $attrs ) = @_;
 
