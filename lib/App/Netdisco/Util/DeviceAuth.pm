@@ -1,5 +1,8 @@
 package App::Netdisco::Util::DeviceAuth;
 
+# 设备认证工具模块
+# 用于处理设备SNMP认证和外部凭据获取
+
 use Dancer qw/:syntax :script/;
 use App::Netdisco::Util::DNS 'hostname_from_ip';
 
@@ -33,6 +36,8 @@ config changes over time. Returns a list which can replace C<device_auth>.
 
 =cut
 
+# 修复设备认证配置
+# 重建device_auth配置，添加缺失的默认值和其他修复
 sub fixup_device_auth {
   my $da = dclone (setting('device_auth') || []);
   my $sa = dclone (setting('snmp_auth')   || []);
@@ -44,22 +49,22 @@ sub fixup_device_auth {
   my $config = ((scalar @$da) ? $da : $sa);
   my @new_stanzas = ();
 
-  # new style snmp config
+  # 新式SNMP配置处理
   foreach my $stanza (@$config) {
-    # user tagged
+    # 用户标记处理
     my $tag = '';
     if (1 == scalar keys %$stanza) {
       $tag = (keys %$stanza)[0];
       $stanza = $stanza->{$tag};
 
-      # corner case: untagged lone community
+      # 特殊情况：未标记的单独community
       if ($tag eq 'community') {
           $tag = $stanza;
           $stanza = {community => $tag};
       }
     }
 
-    # defaults
+    # 设置默认值
     $stanza->{tag} ||= $tag;
     $stanza->{read} = 1 if !exists $stanza->{read};
     $stanza->{no}   ||= [];
@@ -74,15 +79,15 @@ sub fixup_device_auth {
     push @new_stanzas, $stanza;
   }
 
-  # import legacy sshcollector configuration
+  # 导入遗留的sshcollector配置
   my @sshcollector = @{ dclone (setting('sshcollector') || []) };
   foreach my $stanza (@sshcollector) {
-    # defaults
+    # 设置默认值
     $stanza->{driver} = 'cli';
     $stanza->{read} = 1;
     $stanza->{no}   ||= [];
 
-    # fixups
+    # 修复配置
     $stanza->{only} ||= [ scalar delete $stanza->{ip} ||
                           scalar delete $stanza->{hostname} ];
     $stanza->{username} = scalar delete $stanza->{user};
@@ -90,9 +95,9 @@ sub fixup_device_auth {
     push @new_stanzas, $stanza;
   }
 
-  # legacy config
-  # note: read strings tried before write
-  # note: read-write is no longer used for read operations
+  # 遗留配置处理
+  # 注意：读取字符串在写入之前尝试
+  # 注意：读写不再用于读取操作
 
   push @new_stanzas, map {{
     read => 1, write => 0,
@@ -106,6 +111,7 @@ sub fixup_device_auth {
     community => $_,
   }} @{setting('community_rw') || []};
 
+  # 为每个配置段落设置默认驱动
   foreach my $stanza (@new_stanzas) {
     $stanza->{driver} ||= 'snmp'
       if exists $stanza->{community}
@@ -123,6 +129,8 @@ Mode can be C<read> or C<write> and defaults to 'read'.
 
 =cut
 
+# 获取外部凭据
+# 运行命令来收集SNMP凭据或device_auth配置段落
 sub get_external_credentials {
   my ($device, $mode) = @_;
   my $cmd = (setting('get_credentials') || setting('get_community'));
@@ -131,16 +139,17 @@ sub get_external_credentials {
   $mode ||= 'read';
 
   if (defined $cmd and length $cmd) {
-      # replace variables
+      # 替换变量
       $cmd =~ s/\%MODE\%/$mode/egi;
       $cmd =~ s/\%HOST\%/$host/egi;
       $cmd =~ s/\%IP\%/$ip/egi;
 
-      my $result = `$cmd`; # BACKTICKS
+      my $result = `$cmd`; # 执行命令
       return () unless defined $result and length $result;
 
       my @lines = split (m/\n/, $result);
       foreach my $line (@lines) {
+          # 处理community配置行
           if ($line =~ m/^community\s*=\s*(.*)\s*$/i) {
               if (length $1 and $mode eq 'read') {
                   debug sprintf '[%s] external read credentials added',
@@ -153,6 +162,7 @@ sub get_external_credentials {
                   }} split(m/\s*,\s*/,$1);
               }
           }
+          # 处理setCommunity配置行
           elsif ($line =~ m/^setCommunity\s*=\s*(.*)\s*$/i) {
               if (length $1 and $mode eq 'write') {
                   debug sprintf '[%s] external write credentials added',
@@ -165,6 +175,7 @@ sub get_external_credentials {
                   }} split(m/\s*,\s*/,$1);
               }
           }
+          # 处理JSON格式的配置段落
           else {
             my $stanza = undef;
             try {

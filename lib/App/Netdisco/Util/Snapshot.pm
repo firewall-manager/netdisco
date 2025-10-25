@@ -1,5 +1,8 @@
 package App::Netdisco::Util::Snapshot;
 
+# 快照工具模块
+# SNMP::Info实例的辅助函数
+
 use Dancer qw/:syntax :script/;
 use Dancer::Plugin::DBIC 'schema';
 
@@ -43,6 +46,8 @@ a net-snmp snmpwalk on disk. Returns a cache.
 
 =cut
 
+# 为设备加载缓存
+# 尝试在数据库或磁盘上找到设备缓存，或从磁盘上的net-snmp snmpwalk构建一个
 sub load_cache_for_device {
   my $device = shift;
   return {} unless ($device->is_pseudo or not $device->in_storage);
@@ -50,6 +55,7 @@ sub load_cache_for_device {
   my $pseudo_cache = catfile( catdir(($ENV{NETDISCO_HOME} || $ENV{HOME}), 'logs', 'snapshots'), $device->ip );
   my $loadmibs = schema('netdisco')->resultset('SNMPObject')->count;
 
+  # 检查快照文件但无MIB数据的情况
   if (-f $pseudo_cache and not $loadmibs) {
       warning "device snapshot exists ($pseudo_cache) but no MIB data available.";
       warning 'skipping offline cache load - run a "loadmibs" job if you want this!';
@@ -58,7 +64,7 @@ sub load_cache_for_device {
 
   my %oids = ();
 
-  # ideally we have a cache in the db
+  # 理想情况下我们在数据库中有缓存
   if ($device->is_pseudo
       and not $device->oids->search({ -or => [
         -bool => \q{ array_length(oid_parts, 1) IS NULL },
@@ -75,56 +81,56 @@ sub load_cache_for_device {
           value => (@{ from_json($_->{value}) })[0],
       } for @rows;
   }
-  # or we have an snmpwalk file on disk
+  # 或者我们在磁盘上有snmpwalk文件
   elsif (-f $pseudo_cache and not $device->in_storage) {
       debug sprintf "importing snmpwalk from disk ($pseudo_cache)";
 
       my @lines = read_lines($pseudo_cache);
       my %store = ();
 
-      # sometimes we're given a snapshot with iso. instead of .1.
+      # 有时我们得到的是iso.而不是.1.的快照
       if ($lines[0] !~ m/^.\d/) {
           warning 'snapshot file rejected - has translated names/values instead of numeric';
           return {};
       }
 
-      # parse the snmpwalk output which looks like
+      # 解析snmpwalk输出，看起来像
       # .1.0.8802.1.1.2.1.1.1.0 = INTEGER: 30
       foreach my $line (@lines) {
           my ($oid, $type, $value) = $line =~ m/^(\S+)\s+=\s+(?:([^:]+):\s+)?(.+)$/;
           next unless $oid and $value;
 
-          # empty string makes the capture go wonky
+          # 空字符串使捕获变得混乱
           $value = '' if $value =~ m/^[^:]+: ?$/;
 
-          # remove quotes from strings
+          # 从字符串中移除引号
           $value =~ s/^"//;
           $value =~ s/"$//;
 
           $store{$oid} = {
             oid       => $oid,
-            oid_parts => [], # not needed temporarily 
+            oid_parts => [], # 暂时不需要
             value     => to_json([ ((defined $type and $type eq 'BASE64') ? $value
                                                                           : encode_base64(trim($value), '')) ]),
           };
       }
 
-      # put into the database (temporarily)
-      # this MUST happen here and not be refactored into make_snmpwalk_browsable
-      # because make_snmpwalk_browsable is also called from snapshot job.
-      # it will all be cleaned up after
+      # 放入数据库（临时）
+      # 这必须在这里发生，不能重构到make_snmpwalk_browsable中
+      # 因为make_snmpwalk_browsable也从快照作业中调用
+      # 之后都会被清理
       schema('netdisco')->txn_do(sub {
         $device->oids->delete;
         $device->oids->populate([values %store]);
       });
 
-      # get back out of the database as tables with related snmp_object (for the enum)
+      # 从数据库中获取，作为与相关snmp_object的表（用于枚举）
       %oids = make_snmpwalk_browsable($device);
       $oids{$_}->{value} = (@{ from_json( $oids{$_}->{value} ) })[0]
         for keys %oids;
   }
 
-  # inflate the cache to an SNMP::Info cache instance
+  # 将缓存膨胀为SNMP::Info缓存实例
   return snmpwalk_to_snmpinfo_cache(%oids);
 }
 
@@ -135,13 +141,15 @@ table rows to hashref, enum values translated, and oid_parts filled.
 
 =cut
 
+# 使snmpwalk可浏览
+# 获取设备的device_browser行并重写它们以转换表行为哈希引用，翻译枚举值，并填充oid_parts
 sub make_snmpwalk_browsable {
   my $device = shift;
   my %oids = ();
 
-  # to get relation from device_browser to snmp_object working for tables
-  # we need to temporarily populate device_browser with potential table oids.
-  # it will all be cleaned up after
+  # 为了使device_browser到snmp_object的关系对表工作
+  # 我们需要临时用潜在的表oid填充device_browser
+  # 之后都会被清理
   my %value_oids = map {($_ => 1)} $device->oids->get_column('oid')->all;
   my %table_oids = ();
 

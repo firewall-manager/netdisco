@@ -1,5 +1,8 @@
 package App::Netdisco::Util::Permission;
 
+# 权限控制工具模块
+# 支持Netdisco应用程序各个部分的辅助子程序
+
 use strict;
 use warnings;
 use Dancer qw/:syntax :script/;
@@ -48,9 +51,11 @@ for details of what C<$acl> may contain.
 
 =cut
 
+# 检查ACL匹配
+# 给定IP地址、对象实例或哈希，如果配置设置匹配则返回true，否则返回false
 sub acl_matches {
   my ($thing, $setting_name) = @_;
-  # fail-safe so undef config should return true
+  # 故障安全，未定义配置应返回true
   return true unless $thing and $setting_name;
   my $config = (exists config->{"$setting_name"} ? setting($setting_name)
                                                  : $setting_name);
@@ -63,6 +68,8 @@ This is an alias for L<acl_matches>.
 
 =cut
 
+# ACL检查别名
+# 这是acl_matches的别名
 sub check_acl_no { goto &acl_matches }
 
 =head2 acl_matches_only( $ip | $object | \%hash | \@item_list, $setting_name | $acl_entry | \@acl )
@@ -88,15 +95,17 @@ for details of what C<$acl> may contain.
 
 =cut
 
+# 检查ACL仅匹配
+# 给定IP地址、对象实例或哈希，如果配置设置匹配则返回true，否则返回false
 sub acl_matches_only {
   my ($thing, $setting_name) = @_;
-  # fail-safe so undef config should return false
+  # 故障安全，未定义配置应返回false
   return false unless $thing and $setting_name;
   my $config = (exists config->{"$setting_name"} ? setting($setting_name)
                                                  : $setting_name);
-  # logic to make an empty config be equivalent to 'any' (i.e. a match)
-  # empty list check means truth check passes for match or empty list
-  return true if not $config # undef or empty string
+  # 使空配置等同于'any'（即匹配）的逻辑
+  # 空列表检查意味着真值检查对匹配或空列表通过
+  return true if not $config # 未定义或空字符串
               or ((ref [] eq ref $config) and not scalar @$config);
   return check_acl($thing, $config);
 }
@@ -107,6 +116,8 @@ This is an alias for L<acl_matches_only>.
 
 =cut
 
+# ACL仅检查别名
+# 这是acl_matches_only的别名
 sub check_acl_only { goto &acl_matches_only }
 
 =head2 check_acl( $ip | $object | \%hash | \@item_list, $acl_entry | \@acl )
@@ -129,13 +140,16 @@ for the details.
 
 =cut
 
+# 检查ACL规则
+# 给定IP地址、对象实例或哈希，将其与ACL中的项目进行比较，然后返回true或false
 sub check_acl {
   my ($things, $config) = @_;
   return false unless defined $things and defined $config;
   return false if ref [] eq ref $things and not scalar @$things;
   $things = [$things] if ref [] ne ref $things;
 
-  my $real_ip = ''; # valid to be empty
+  my $real_ip = ''; # 允许为空
+  # 从对象或哈希中提取IP地址
   ITEM: foreach my $item (@$things) {
       foreach my $slot (qw/alias ip switch addr/) {
           if (blessed $item) {
@@ -149,33 +163,39 @@ sub check_acl {
           last ITEM if $real_ip;
       }
   }
+  # 如果直接是字符串，则使用它
   ITEM: foreach my $item (@$things) {
       last ITEM if $real_ip;
       $real_ip = $item if (ref $item eq q{}) and $item;
   }
 
+  # 处理配置为单个项目或列表
   $config  = [$config] if ref $config eq q{};
   if (ref [] ne ref $config) {
     error "error: acl is not a single item or list (cannot compare to '$real_ip')";
     return false;
   }
+  # 检查是否所有规则都必须匹配
   my $all  = (scalar grep {$_ eq 'op:and'} @$config);
 
-  # common case of using plain IP in ACL, so string compare for speed
+  # 使用普通IP的常见情况，所以字符串比较以提高速度
   my $find = (scalar grep {not reftype $_ and $_ eq $real_ip} @$config);
   return true if $real_ip and $find and not $all;
 
+  # 创建IP地址对象和DNS解析选项
   my $addr = NetAddr::IP::Lite->new($real_ip);
-  my $name = undef; # only look up once, and only if qr// is used
+  my $name = undef; # 只查找一次，且仅在qr//使用时
   my $ropt = { retry => 1, retrans => 1, udp_timeout => 1, tcp_timeout => 2 };
   my $qref = ref qr//;
 
+  # 处理每个ACL规则
   RULE: foreach (@$config) {
-      my $rule = $_; # must copy so that we can modify safely
+      my $rule = $_; # 必须复制以便安全修改
       next RULE if !defined $rule or $rule eq 'op:and';
 
+      # 处理正则表达式规则
       if ($qref eq ref $rule) {
-          # if no IP addr, cannot match its dns
+          # 如果没有IP地址，无法匹配其DNS
           next RULE unless $addr;
 
           $name = ($name || hostname_from_ip($addr->addr, $ropt) || '!!none!!');
@@ -188,8 +208,10 @@ sub check_acl {
           next RULE;
       }
 
+      # 检查否定规则
       my $neg = ($rule =~ s/^!//);
 
+      # 处理主机组规则
       if ($rule =~ m/^group:(.+)$/) {
           my $group = $1;
           setting('host_groups')->{$group} ||= [];
@@ -234,7 +256,7 @@ sub check_acl {
           my $match = $2 || '';
           my $found = false;
 
-          # custom field exists, undef is allowed to match empty string
+          # 自定义字段存在，允许undef匹配空字符串
           ITEM: foreach my $item (@$things) {
               my $cf = {};
               if (blessed $item and $item->can('custom_fields')) {
@@ -259,7 +281,7 @@ sub check_acl {
           # missing custom field matches empty string
           # #1348 or matches string if $neg is set
           # (which is done in a second pass to allow all @$things to be
-          # inspected for existing custom fields)
+          # 检查现有自定义字段）
           if (! $found and ($match eq q{} and not $neg) or (length $match and $neg)) {
 
               ITEM: foreach my $item (@$things) {
@@ -291,7 +313,7 @@ sub check_acl {
           my $match = $2 || '';
           my $found = false;
 
-          # property exists, undef is allowed to match empty string
+          # 属性存在，允许undef匹配空字符串
           ITEM: foreach my $item (@$things) {
               if (blessed $item and $item->can($prop)) {
                   if ($neg xor
@@ -318,7 +340,7 @@ sub check_acl {
           # missing property matches empty string
           # #1348 or matches string if $neg is set
           # (which is done in a second pass to allow all @$things to be
-          # inspected for existing properties)
+          # 检查现有属性）
           if (! $found and ($match eq q{} and not $neg) or (length $match and $neg)) {
 
               ITEM: foreach my $item (@$things) {
@@ -360,7 +382,7 @@ sub check_acl {
           my $first = $1;
           my $last  = $2;
 
-          # if no IP addr, cannot match IP range
+          # 如果没有IP地址，无法匹配IP范围
           next RULE unless $addr;
 
           if ($rule =~ m/:/) {
@@ -399,10 +421,10 @@ sub check_acl {
           next RULE;
       }
 
-      # could be something in error, and IP/host is only option left
+      # 可能是错误的东西，IP/主机是唯一剩下的选项
       next RULE if ref $rule;
 
-      # if no IP addr, cannot match IP prefix
+      # 如果没有IP地址，无法匹配IP前缀
       next RULE unless $addr;
 
       my $ip = NetAddr::IP::Lite->new($rule)

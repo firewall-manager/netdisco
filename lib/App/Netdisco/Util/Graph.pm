@@ -1,5 +1,8 @@
 package App::Netdisco::Util::Graph;
 
+# 图形工具模块
+# 从Netdisco数据生成GraphViz输出
+
 use App::Netdisco;
 
 use Dancer qw/:syntax :script/;
@@ -18,7 +21,7 @@ our @EXPORT_OK = qw/
 /;
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
-# nothing to see here, please move along...
+# 全局变量，用于图形生成
 our ($ip, $label, $isdev, $devloc, %GRAPH, %GRAPH_SPEED);
 
 =head1 NAME
@@ -59,9 +62,12 @@ Creates netmap of network.
 
 =cut
 
+# 创建网络图形
+# 创建网络的地图
 sub graph {
     my %CONFIG = %{ setting('graph') };
 
+    # 获取当前时间信息
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime();
     my $month = sprintf("%d%02d",$year+1900,$mon+1);
 
@@ -73,19 +79,21 @@ sub graph {
         return;
     }
 
+    # 获取连通组件
     my @S = $G->connected_components;
 
-    # Count number of nodes in each subgraph
+    # 计算每个子图中的节点数量
     my %S_count;
     for (my $i=0;$i< scalar @S;$i++){
         $S_count{$i} = scalar @{$S[$i]};
     }
 
+    # 按节点数量排序处理子图
     foreach my $subgraph (sort { $S_count{$b} <=> $S_count{$a} } keys %S_count){
         my $SUBG = $G->copy;
         print "\$S[$subgraph] has $S_count{$subgraph} nodes.\n";
 
-        # Remove other subgraphs from this one
+        # 从此子图中移除其他子图
         my %S_notme = %S_count;
         delete $S_notme{$subgraph};
         foreach my $other (keys %S_notme){
@@ -93,7 +101,7 @@ sub graph {
             $SUBG->delete_vertices(@{$S[$other]})
         }
 
-        # Create the subgraph
+        # 创建子图
         my $timeout = defined $CONFIG{graph_timeout} ? $CONFIG{graph_timeout} : 60;
 
         eval {
@@ -109,8 +117,8 @@ sub graph {
             }
         }
 
-        # Facility to create subgraph for each non-connected network segment.
-        # Right now, let's just make the biggest one only.
+        # 为每个非连通的网络段创建子图的设施
+        # 现在，让我们只创建最大的一个
         last;
     }
 }
@@ -125,11 +133,14 @@ Generates subgraph. Does actual GraphViz calls.
 
 =cut
 
+# 生成子图
+# 执行实际的GraphViz调用
 sub graph_each  {
     my ($G, $name) = @_;
     my %CONFIG = %{ setting('graph') };
     info "Creating new Graph";
 
+    # 图形定义
     my $graph_defs = {
                      'bgcolor' => $CONFIG{graph_bg}         || 'black',
                      'color'   => $CONFIG{graph_color}      || 'white',
@@ -143,9 +154,11 @@ sub graph_each  {
                      'fontname'  => $CONFIG{node_font}      || 'lucon',
                      'fontsize'  => $CONFIG{node_fontsize}  || 12,
                      };
+    # 边定义
     my $edge_defs  = {
                      'color' => $CONFIG{edge_color}         || 'wheat',
                      };
+    # 节点定义
     my $node_defs  = {
                      'shape'     => $CONFIG{node_shape}     || 'box',
                      'fillcolor' => $CONFIG{node_fillcolor} || 'dimgrey',
@@ -158,11 +171,13 @@ sub graph_each  {
     $node_defs->{height} = $CONFIG{node_height} if defined $CONFIG{node_height};
     $node_defs->{width}  = $CONFIG{node_width}  if defined $CONFIG{node_width};
 
+    # 设置epsilon值
     my $epsilon = undef;
     if (defined $CONFIG{graph_epsilon}){
         $epsilon = "0." . '0' x $CONFIG{graph_epsilon} . '1';
     }
 
+    # GraphViz配置
     my %gv = (
                directed => 0,
                layout   => $CONFIG{graph_layout} || 'twopi',
@@ -176,14 +191,17 @@ sub graph_each  {
 
     my $gv = GraphViz->new(%gv);
 
+    # 创建节点映射
     my %node_map = ();
     my @nodes = $G->vertices;
 
+    # 为每个设备添加节点
     foreach my $dev (@nodes){
         my $node_name = graph_addnode($gv,$dev);
         $node_map{$dev} = $node_name;
     }
 
+    # 设置根设备
     my $root_ip = defined $CONFIG{root_device}
       ? (ipv4_from_hostname($CONFIG{root_device}) || $CONFIG{root_device})
       : undef;
@@ -195,6 +213,7 @@ sub graph_each  {
         }
     }
 
+    # 处理边（连接）
     my @edges = $G->edges;
 
     while (my $e = shift @edges){
@@ -210,10 +229,12 @@ sub graph_each  {
         my %edge = ();
         my $val = ''; my $suffix = '';
 
+        # 解析速度值
         if ($speed =~ /^([\d.]+)\s+([a-z])bps$/i) {
             $val = $1; $suffix = $2;
         }
 
+        # 根据速度设置边样式
         if ( ($suffix eq 'k') or ($speed =~ m/(t1|ds3)/i) ){
             $edge{color} = 'green';
             $edge{style} = 'dotted';
@@ -222,11 +243,9 @@ sub graph_each  {
         if ($suffix eq 'M'){
             if ($val < 10.0){
                 $edge{color} = 'green';
-                #$edge{style} = 'dotted';
                 $edge{style} = 'dashed';
             } elsif ($val < 100.0){
                 $edge{color} = '#8b7e66';
-                #$edge{style} = 'normal';
                 $edge{style} = 'solid';
             } else {
                 $edge{color} = '#ffe7ba';
@@ -235,11 +254,10 @@ sub graph_each  {
         }
 
         if ($suffix eq 'G'){
-            #$edge{style} = 'bold';
             $edge{color} = 'cyan1';
         }
 
-        # Add extra styles to edges (mainly for modifying width)
+        # 添加额外的边样式（主要用于修改宽度）
         if(defined $CONFIG{edge_style}) {
             $edge{style} .= "," . $CONFIG{edge_style};
         }
@@ -249,6 +267,7 @@ sub graph_each  {
 
     info "Ignore all warnings about node size";
 
+    # 生成各种格式的图形文件
     if (defined $CONFIG{graph_raw} and $CONFIG{graph_raw}){
         my $graph_raw = _homepath('graph_raw');
         info "  Creating raw graph: $graph_raw";
@@ -287,6 +306,8 @@ object.
 
 =cut
 
+# 添加节点到GraphViz对象
+# 检查配置文件中的映射设置并将节点添加到GraphViz对象
 sub graph_addnode {
     my $gv = shift;
     my %CONFIG = %{ setting('graph') };
@@ -302,11 +323,11 @@ sub graph_addnode {
     $label =~ s/$domain_suffix//;
     $node{label} = $label;
 
-    # Dereferencing the scalar by name below
-    #   requires that the variable be non-lexical (not my)
-    #   we'll create some local non-lexical versions
-    #   that will expire at the end of this block
-    # Node Mappings
+    # 下面的按名称解引用标量
+    #   要求变量是非词法作用域的（不是my）
+    #   我们将创建一些本地非词法作用域版本
+    #   它们将在此块结束时过期
+    # 节点映射
     foreach my $map (@{ $CONFIG{'node_map'} || [] }){
         my ($var, $regex, $attr, $val) = split(':', $map);
 
@@ -321,32 +342,31 @@ sub graph_addnode {
         }
     }
 
-    # URL for image maps FIXME for non-root hosting
+    # 图像映射的URL（非根托管的修复）
     if ($isdev) {
         $node{URL} = "/device?&q=$ip";
     }
     else {
         $node{URL} = "/search?tab=node&q=$ip";
-        # Overrides any colors given to nodes above. Bug 1094208
+        # 覆盖上面给节点的任何颜色。Bug 1094208
         $node{fillcolor} = $CONFIG{'node_problem'} || 'red';
     }
 
+    # 处理图形集群
     if ($CONFIG{'graph_clusters'} && $devloc) {
-        # This odd construct works around a bug in GraphViz.pm's
-        # quoting of cluster names.  If it has a name with spaces,
-        # it'll just quote it, resulting in creating a subgraph name
-        # of cluster_"location with spaces".  This is an illegal name
-        # according to the dot grammar, so if the name matches the
-        # problematic regexp we make GraphViz.pm generate an internal
-        # name by using a leading space in the name.
+        # 这个奇怪的构造解决了GraphViz.pm中
+        # 集群名称引用的bug。如果名称包含空格，
+        # 它只会引用它，导致创建子图名称
+        # cluster_"location with spaces"。根据dot语法这是非法名称，
+        # 所以如果名称匹配有问题的正则表达式，
+        # 我们通过在名称前加空格让GraphViz.pm生成内部名称。
         #
-        # This is bug ID 16912 at rt.cpan.org -
+        # 这是rt.cpan.org的bug ID 16912 -
         # http://rt.cpan.org/NoAuth/Bug.html?id=16912
         #
-        # Another bug, ID 11514, prevents us from using a combination
-        # of name and label attributes to hide the extra space from
-        # the user.  However, since it's just a space, hopefully it
-        # won't be too noticable.
+        # 另一个bug，ID 11514，阻止我们使用名称和标签属性的组合
+        # 来向用户隐藏额外的空格。但是，由于只是一个空格，
+        # 希望不会太明显。
         my($loc) = $devloc;
         $loc = " " . $loc if ($loc =~ /^[a-zA-Z](\w| )*$/);
         $node{cluster} = { name => $loc };
@@ -370,9 +390,12 @@ Nodes without topology information are not included.
 
 =cut
 
+# 创建图形对象
+# 返回表示已发现网络的Graph::Undirected对象
 sub make_graph {
     my $G = Graph::Undirected->new();
 
+    # 获取设备和链接信息
     my $devices = schema(vars->{'tenant'})->resultset('Device')
         ->search({}, { columns => [qw/ip dns location /] });
     my $links = schema(vars->{'tenant'})->resultset('DevicePort')
@@ -385,7 +408,7 @@ sub make_graph {
     my %devs = ( map {($_->ip => $_->dns)}      $devices->all );
     my %locs = ( map {($_->ip => $_->location)} $devices->all );
 
-    # Check for no topology info
+    # 检查是否有拓扑信息
     unless ($links->count > 0) {
         debug "make_graph() - No topology information. skipping.";
         return undef;
@@ -394,25 +417,26 @@ sub make_graph {
     my %link_seen = ();
     my %linkmap   = ();
 
+    # 处理每个链接
     while (my $link = $links->next) {
         my $source = $link->ip;
         my $dest   = $link->remote_ip;
         my $speed  = $link->speed;
         my $type   = $link->remote_type;
 
-        # Check for Aliases
+        # 检查别名
         if (defined $aliases{$dest}) {
-            # Set to root device
+            # 设置为根设备
             $dest = $aliases{$dest};
         }
 
-        # Remove loopback - After alias check (bbaetz)
+        # 移除回环 - 在别名检查之后
         if ($source eq $dest) {
             debug "  make_graph() - Loopback on $source";
             next;
         }
 
-        # Skip IP Phones
+        # 跳过IP电话
         if (defined $type and $type =~ /ip.phone/i) {
             debug "  make_graph() - Skipping IP Phone. $source -> $dest ($type)";
             next;
@@ -421,7 +445,7 @@ sub make_graph {
 
         push(@{ $linkmap{$source} }, $dest);
 
-        # take care of reverse too
+        # 处理反向链接
         $link_seen{$source}->{$dest}++;
         $link_seen{$dest}->{$source}++;
 
@@ -429,9 +453,11 @@ sub make_graph {
         $GRAPH_SPEED{$dest}->{$source}->{speed}=$speed;
     }
 
+    # 构建图形
     foreach my $link (keys %linkmap) {
         foreach my $dest (@{ $linkmap{$link} }) {
 
+            # 为每个端点添加顶点
             foreach my $side ($link, $dest) {
                 unless (defined $GRAPH{$side}) {
                     my $is_dev = exists $devs{$side};
@@ -439,7 +465,7 @@ sub make_graph {
                               $devs{$side} :
                               hostname_from_ip($side);
 
-                    # Default to IP if no dns
+                    # 如果没有DNS则默认为IP
                     $dns = defined $dns ? $dns : "($side)";
 
                     $G->add_vertex($side);
@@ -452,6 +478,7 @@ sub make_graph {
                 }
             }
 
+            # 添加边
             $G->add_edge($link,$dest);
             debug "  make_graph - add_edge('$link','$dest')";
         }
@@ -460,6 +487,8 @@ sub make_graph {
     return $G;
 }
 
+# 获取主目录路径
+# 处理图形文件路径
 sub _homepath {
     my ($path, $default) = @_;
 

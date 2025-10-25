@@ -1,5 +1,8 @@
 package App::Netdisco::Util::Web;
 
+# Web工具模块
+# 支持Netdisco应用程序各个部分的辅助子程序
+
 use strict;
 use warnings;
 
@@ -40,6 +43,8 @@ Client has requested device content under C<.../device> or C<.../device/ports>.
 
 =cut
 
+# 检查是否为设备请求
+# 客户端已请求.../device或.../device/ports下的设备内容
 sub request_is_device {
   return (
     index(request->path, uri_for('/device')->path) == 0
@@ -56,6 +61,8 @@ Client has requested JSON format data and an endpoint under C</api>.
 
 =cut
 
+# 检查是否为API请求
+# 客户端已请求JSON格式数据和/api下的端点
 sub request_is_api {
   return ((request->accept and request->accept =~ m/(?:json|javascript)/) and (
     index(request->path, uri_for('/api/')->path) == 0
@@ -71,6 +78,8 @@ Same as C<request_is_api> but also requires path to start "C</api/v1/report/...>
 
 =cut
 
+# 检查是否为API报告请求
+# 与request_is_api相同，但还需要路径以"/api/v1/report/..."开始
 sub request_is_api_report {
   return (request_is_api and (
     index(request->path, uri_for('/api/v1/report/')->path) == 0
@@ -86,6 +95,8 @@ Same as C<request_is_api> but also requires path to start "C</api/v1/search/...>
 
 =cut
 
+# 检查是否为API搜索请求
+# 与request_is_api相同，但还需要路径以"/api/v1/search/..."开始
 sub request_is_api_search {
   return (request_is_api and (
     index(request->path, uri_for('/api/v1/search/')->path) == 0
@@ -108,6 +119,8 @@ L<SQL::Abstract> LIKE clause.
 
 =cut
 
+# SQL匹配
+# 将通配符字符"*"和"?"分别转换为"%"和"_"
 sub sql_match {
   my ($text, $exact) = @_;
   return unless $text;
@@ -131,10 +144,12 @@ Perl's own C<sort> - two input args and an integer return value.
 
 =cut
 
+# 端口排序
+# 排序设备供应商使用的各种类型的端口名称
 sub sort_port {
     my ($aval, $bval) = @_;
 
-    # hack for foundry "10GigabitEthernet" -> cisco-like "TenGigabitEthernet"
+    # 针对foundry的"10GigabitEthernet" -> cisco风格的"TenGigabitEthernet"的hack
     $aval = $1 if $aval =~ qr/^10(GigabitEthernet.+)$/;
     $bval = $1 if $bval =~ qr/^10(GigabitEthernet.+)$/;
 
@@ -145,11 +160,11 @@ sub sort_port {
     my $wordcharword   = qr{^([^:\/.]+)[-\ :\/\.]+([^:\/.0-9]+)(\d+)?$}; #port-channel45
     my $netgear        = qr{^Slot: (\d+) Port: (\d+) }; # "Slot: 0 Port: 15 Gigabit - Level"
     my $ciscofast      = qr{^
-                            # Word Number slash (Gigabit0/)
+                            # 单词数字斜杠 (Gigabit0/)
                             (\D+)(\d+)[\/:]
-                            # Groups of symbol float (/5.5/5.5/5.5), separated by slash or colon
+                            # 符号浮点数组 (/5.5/5.5/5.5)，用斜杠或冒号分隔
                             ([\/:\.\d]+)
-                            # Optional dash (-Bearer Channel)
+                            # 可选破折号 (-Bearer Channel)
                             (-.*)?
                             $}x;
 
@@ -189,22 +204,22 @@ sub sort_port {
         @b = ($bval);
     }
 
-    # Equal until proven otherwise
+    # 在证明其他情况之前相等
     my $val = 0;
     while (scalar(@a) or scalar(@b)){
-        # carried around from the last find.
+        # 从上次查找中携带过来
         last if $val != 0;
 
         my $a1 = shift @a;
         my $b1 = shift @b;
 
-        # A has more components - loses
+        # A有更多组件 - 失败
         unless (defined $b1){
             $val = 1;
             last;
         }
 
-        # A has less components - wins
+        # A有更少组件 - 获胜
         unless (defined $a1) {
             $val = -1;
             last;
@@ -227,6 +242,8 @@ input arg is module list.
 
 =cut
 
+# 模块排序
+# 根据位置和父级将设备模块排序为树层次结构
 sub sort_modules {
     my $input = shift;
     my %modules;
@@ -234,18 +251,17 @@ sub sort_modules {
     foreach my $module (@$input) {
         $modules{$module->index}{module} = $module;
         if ($module->parent) {
-            # Example
-            # index |              description               |        type         | parent |  class  | pos 
+            # 示例
+            # index |              描述                      |        类型          | parent |  class  | pos 
             #-------+----------------------------------------+---------------------+--------+---------+-----
             #     1 | Cisco Aironet 1200 Series Access Point | cevChassisAIRAP1210 |      0 | chassis |  -1
             #     3 | PowerPC405GP Ethernet                  | cevPortFEIP         |      1 | port    |  -1
             #     2 | 802.11G Radio                          | cevPortUnknown      |      1 | port    |   0
 
-            # Some devices do not implement correctly, so given parent
-            # can have multiple items within the same class at a single pos
-            # value.  However, the database results are sorted by 1) parent
-            # 2) class 3) pos 4) index so we should just be able to push onto
-            # the array and ordering be preserved.
+            # 某些设备没有正确实现，所以给定的父级
+            # 可以在单个pos值处具有同一类中的多个项目
+            # 但是，数据库结果按1）父级2）类3）pos 4）索引排序，所以我们应该能够推送到
+            # 数组并保持排序
             {
               no warnings 'uninitialized';
               push(@{$modules{$module->parent}{children}{$module->class}}, $module->index);
@@ -267,6 +283,8 @@ If C<$interval> is not passed, epoch zero (1970-01-01) is used as the start.
 
 =cut
 
+# 时间间隔转日期范围
+# 获取天、周、月或年的间隔，格式如'7 days'，并通过从当前日期减去间隔返回'YYYY-MM-DD to YYYY-MM-DD'格式的日期范围
 sub interval_to_daterange {
     my $interval = shift;
 

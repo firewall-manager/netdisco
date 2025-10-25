@@ -1,5 +1,8 @@
 package App::Netdisco::Util::PortAccessEntity;
 
+# 端口访问实体工具模块
+# 更新device_port_properties中的PAE详细信息
+
 use Dancer qw/:syntax/;
 use Dancer::Plugin::DBIC 'schema';
 use aliased 'App::Netdisco::Worker::Status';
@@ -21,17 +24,21 @@ These are updated both during discover and macsuck.
 
 =cut
 
+# 更新PAE属性
+# 更新设备端口属性中的PAE详细信息，在发现和macsuck期间都会更新
 sub update_pae_attributes {
   my ($device) = @_;
   no warnings "uninitialized";
 
+  # 建立SNMP连接
   my $snmp = App::Netdisco::Transport::SNMP->reader_for($device)
     or return Status->defer("pae failed: could not SNMP connect to $device");
   debug sprintf ' [%s] pae - updating PortAccessEntity details', $device->ip;
 
-  # device property
+  # 设备属性
   my $pae_control = $snmp->pae_control();
 
+  # 检查设备级别的PAE支持
   if ($pae_control and $pae_control eq 'enabled') {
     debug sprintf ' [%s] pae - PortAccessEntity device-wide support: %s', $device->ip, $pae_control;
     schema('netdisco')->resultset('Device')->search({ 'me.ip' => $device->ip})
@@ -43,7 +50,7 @@ sub update_pae_attributes {
     return Status->info("Skipped pae for $device");
   }
 
-  # individual port properties
+  # 获取各个端口属性
   my $interfaces = $snmp->interfaces;
   my $pae_authconfig_state        = $snmp->pae_authconfig_state();
   my $pae_authconfig_port_control = $snmp->dot1xAuthAuthControlledPortControl();
@@ -53,6 +60,7 @@ sub update_pae_attributes {
   my $pae_capabilities            = $snmp->pae_i_capabilities();
   my $pae_last_eapol_frame_source = $snmp->pae_i_last_eapol_frame_source();
 
+  # 处理每个接口的PAE属性
   foreach my $ind (sort keys %$interfaces){
     debug sprintf ' [%s] pae - attributes found for ifindex %s: %s %s %s %s %s %s %s', 
       $device->ip, $ind, 
@@ -64,6 +72,7 @@ sub update_pae_attributes {
       $pae_capabilities->{$ind},
       $pae_last_eapol_frame_source->{$ind};
 
+    # 更新设备端口属性
     schema('netdisco')->resultset('DevicePortProperties')
           ->search({ 'me.ip' => $device->ip, 'me.port' => $interfaces->{$ind} })
           ->update({ 

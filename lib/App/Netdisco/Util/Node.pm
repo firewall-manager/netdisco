@@ -1,5 +1,8 @@
 package App::Netdisco::Util::Node;
 
+# 节点工具模块
+# 提供支持Netdisco应用程序各个部分的辅助子程序
+
 use Dancer qw/:syntax :script/;
 use Dancer::Plugin::DBIC 'schema';
 
@@ -64,6 +67,8 @@ MAC address does not belong to an interface on any known Device
 
 =cut
 
+# 检查MAC地址
+# 对MAC地址执行各种健全性检查，在写入ARP/邻居条目到数据库存储之前需要执行
 sub check_mac {
   my ($node, $device, $port_macs) = @_;
   return 0 if !$node;
@@ -72,27 +77,27 @@ sub check_mac {
   my $devip = ($device ? (ref $device ? $device->ip : $device) : '');
   $port_macs ||= {};
 
-  # incomplete MAC addresses (BayRS frame relay DLCI, etc)
+  # 不完整的MAC地址（BayRS帧中继DLCI等）
   if (!defined $mac or $mac->errstr) {
       debug sprintf ' [%s] check_mac - mac [%s] malformed - skipping',
         $devip, $node;
       return 0;
   }
   else {
-      # lower case, hex, colon delimited, 8-bit groups
+      # 小写，十六进制，冒号分隔，8位组
       $node = lc $mac->as_ieee;
   }
 
-  # broadcast MAC addresses
+  # 广播MAC地址
   return 0 if $mac->is_broadcast;
 
-  # all-zero MAC addresses
+  # 全零MAC地址
   return 0 if $node eq '00:00:00:00:00:00';
 
   # CLIP
   return 0 if $node eq '00:00:00:00:00:01';
 
-  # multicast
+  # 多播地址
   if ($mac->is_multicast and not $mac->is_msnlb) {
       debug sprintf ' [%s] check_mac - multicast mac [%s] - skipping',
         $devip, $node;
@@ -113,7 +118,7 @@ sub check_mac {
       return 0;
   }
 
-  # device's own MACs
+  # 设备自己的MAC地址
   if ($port_macs and exists $port_macs->{$node}) {
       debug sprintf ' [%s] check_mac - mac [%s] is device port - skipping',
         $devip, $node;
@@ -135,11 +140,15 @@ Returns false if the host is not permitted to nbtstat the target node.
 
 =cut
 
+# 检查是否可进行NetBIOS状态查询
+# 给定IP地址，如果本地配置允许Netdisco在此主机上对节点执行nbtstat查询则返回true
 sub is_nbtstatable {
   my $ip = shift;
 
+  # 检查是否在禁止列表中
   return if acl_matches($ip, 'nbtstat_no');
 
+  # 检查是否在允许列表中
   return unless acl_matches_only($ip, 'nbtstat_only');
 
   return 1;
@@ -169,6 +178,8 @@ found on.
 
 =cut
 
+# 存储ARP条目
+# 将新条目存储到node_ip表中，包含给定的MAC、IP（v4或v6）和DNS主机名
 sub store_arp {
   my ($hash_ref, $now, $device_ip) = @_;
   $now ||= 'LOCALTIMESTAMP';
@@ -181,12 +192,15 @@ sub store_arp {
   warning sprintf 'store_arp - deprecated usage, should be store_arp($hash_ref, $now, $device_ip)' unless $device_ip;
   debug sprintf 'store_arp - device %s mac %s ip %s vrf "%s"', $device_ip // "n/a", $mac->as_ieee, $ip, $vrf;
 
+  # 在事务中处理ARP条目存储
   schema(vars->{'tenant'})->txn_do(sub {
+    # 将旧条目标记为非活动
     schema(vars->{'tenant'})->resultset('NodeIp')
       ->search(
         { ip => $ip, -bool => 'active'},
         { columns => [qw/mac ip vrf/] })->update({active => \'false'});
 
+    # 创建或更新新条目
     my $row = schema(vars->{'tenant'})->resultset('NodeIp')
       ->update_or_new(
       {
@@ -206,7 +220,7 @@ sub store_arp {
       $row->set_column(time_first => \$now);
 
       if ($device_ip) {
-        # init the tracking, setting the first+last stamps to now
+        # 初始化跟踪，将首次和最后时间戳设置为现在
         $row->set_column(seen_on_router_first => \[qq{jsonb_build_object(?::text, $now)}, $device_ip ]);
         $row->set_column(seen_on_router_last =>  \[qq{jsonb_build_object(?::text, $now)}, $device_ip ]);
       }
@@ -215,11 +229,11 @@ sub store_arp {
     }
     else {
       if ($device_ip) {
-        # set or update the last seen for this router to now
+        # 设置或更新此路由器的最后看到时间为现在
         $row->set_column(seen_on_router_last => \[qq{
           jsonb_set(seen_on_router_last, ?, to_jsonb($now))} => (qq!{$device_ip}!) ]);
 
-        # add the first seen for this router if first time seen, else no-op
+        # 如果是首次看到则添加首次看到时间，否则无操作
         $row->set_column(seen_on_router_first => \[qq{
           CASE WHEN (seen_on_router_first->?) IS NOT NULL
             THEN seen_on_router_first

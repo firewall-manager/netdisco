@@ -1,9 +1,12 @@
 package App::Netdisco::Util::Statistics;
 
+# 统计工具模块
+# 更新Netdisco统计信息
+
 use Dancer qw/:syntax :script/;
 use Dancer::Plugin::DBIC 'schema';
 
-use Time::Piece; # for OO localtime
+use Time::Piece; # 用于面向对象的localtime
 
 use base 'Exporter';
 our @EXPORT = ();
@@ -30,17 +33,19 @@ figures.
 
 =cut
 
+# 更新统计信息
+# 更新Netdisco统计信息，要么是今天的新数据，要么更新今天的数据
 sub update_stats {
   my $schema = schema(vars->{'tenant'});
   eval { require SNMP::Info };
   my $snmpinfo_ver = ($@ ? 'n/a' : $SNMP::Info::VERSION);
   my $postgres_ver = pretty_version($schema->storage->dbh->{pg_server_version}, 2);
 
-  # roll everything back if we're testing
+  # 如果我们在测试，回滚所有内容
   my $txn_guard = $ENV{ND2_DB_ROLLBACK}
     ? $schema->storage->txn_scope_guard : undef;
 
-  # TODO: (when we have the capabilities table?)
+  # TODO: (当我们有capabilities表时？)
   #  $stats{waps} = sql_scalar('device',['COUNT(*)'], {"model"=>"AIR%"});
 
   $schema->txn_do(sub {
@@ -102,6 +107,8 @@ Returns C<undef> if seglen is zero.
 
 =cut
 
+# 美化版本号
+# 将字符串（只允许数字和点）分割为指定长度的部分，然后从每个部分中移除所有前导零
 sub pretty_version {
   my ($version, $seglen) = @_;
   return unless $version and $seglen;

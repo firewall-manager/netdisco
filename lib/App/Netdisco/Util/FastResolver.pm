@@ -1,5 +1,8 @@
 package App::Netdisco::Util::FastResolver;
 
+# 快速解析器工具模块
+# 提供支持Netdisco应用程序各个部分的辅助子程序
+
 use strict;
 use warnings;
 use Dancer ':script';
@@ -43,6 +46,8 @@ addresses which resolved.
 
 =cut
 
+# 异步主机名解析
+# 使用完全异步和高性能的纯Perl存根解析器AnyEvent::DNS
 sub hostnames_resolve_async {
   my ($ips, $timeouts) = @_;
   return [] unless $ips and ref [] eq ref $ips;
@@ -53,15 +58,16 @@ sub hostnames_resolve_async {
   AnyEvent::DNS::resolver->timeout(@$timeouts);
   AnyEvent::DNS::resolver->os_config();
 
-  # Set up the condvar
+  # 设置条件变量
   my $done = AE::cv;
   $done->begin( sub { shift->send } );
 
+  # 遍历IP地址进行解析
   IP: foreach my $hash_ref (@$ips) {
     my $ip = $hash_ref->{'ip'} || $hash_ref->{'alias'} || $hash_ref->{'device'};
     next IP if acl_matches($ip, $skip);
 
-    # check /etc/hosts file and short-circuit if found
+    # 检查/etc/hosts文件，如果找到则短路返回
     foreach my $name (reverse sort keys %$ETCHOSTS) {
         if ($ETCHOSTS->{$name}->[0]->[0] eq $ip) {
             $hash_ref->{'dns'} = $name;
@@ -69,19 +75,20 @@ sub hostnames_resolve_async {
         }
     }
 
+    # 开始异步DNS反向查找
     $done->begin;
     AnyEvent::DNS::reverse_lookup $ip,
             sub { $hash_ref->{'dns'} = shift; $done->end; };
   }
 
-  # Decrement the cv counter to cancel out the send declaration
+  # 递减条件变量计数器以取消发送声明
   $done->end;
 
-  # Wait for the resolver to perform all resolutions
+  # 等待解析器执行所有解析
   $done->recv;
 
-  # Remove reference to resolver so that we close sockets
-  # and allow return to any instance defaults we have changed
+  # 移除解析器引用以便关闭套接字
+  # 并允许返回到我们已更改的任何实例默认值
   undef $AnyEvent::DNS::RESOLVER if $AnyEvent::DNS::RESOLVER;
 
   return $ips;

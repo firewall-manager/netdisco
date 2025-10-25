@@ -1,5 +1,8 @@
 package App::Netdisco::Util::Port;
 
+# 端口工具模块
+# 支持Netdisco应用程序各个部分的辅助子程序
+
 use Dancer qw/:syntax :script/;
 use Dancer::Plugin::DBIC 'schema';
 use Dancer::Plugin::Auth::Extensible;
@@ -43,16 +46,20 @@ it. If such a role is removed, then a backup of the original is restored.
 
 =cut
 
+# 同步端口控制角色
+# 从数据库加载端口控制角色并将它们合并到portctl_role配置中
 sub sync_portctl_roles {
   my @db_roles = schema(vars->{'tenant'})
     ->resultset('PortCtlRole')->role_names;
   config->{'portctl_by_role'} = {};
 
+  # 处理配置中的角色
   foreach my $role (sort {$a cmp $b} keys %{ setting('portctl_by_role_shadow') }) {
       config->{'portctl_by_role'}->{$role}
         = (setting('portctl_by_role_shadow')->{$role} || '!group:__ANY__');
   }
 
+  # 处理数据库中的角色
   foreach my $role (@db_roles) {
       my @rows = schema(vars->{'tenant'})->resultset('PortCtlRole')
         ->search({ role_name => $role },
@@ -60,7 +67,7 @@ sub sync_portctl_roles {
 
       config->{'portctl_by_role'}->{$role} = {};
       foreach my $pair (@rows) {
-          # convert LHS device ACLs to named groups
+          # 将左侧设备ACL转换为命名组
           my $group = 'synthesized_group_'. $pair->device_acl->id;
           config->{'host_groups'}->{$group} = $pair->device_acl->rules;
           config->{'portctl_by_role'}->{$role}->{'group:'. $group}
@@ -84,36 +91,38 @@ Will return false if these checks fail, otherwise true.
 
 =cut
 
+# 端口ACL角色检查
+# 如果提供了设备和用户，则对portctl_by_role进行权限检查
 sub port_acl_by_role_check {
   my ($port, $device, $user) = @_;
 
-  # skip user acls for netdisco-do --force jobs
-  # this avoids the need to create a netdisco user in the DB and give rights
+  # 跳过netdisco-do --force作业的用户ACL
+  # 这避免了在数据库中创建netdisco用户并给予权限的需要
   return true if $ENV{ND2_DO_FORCE};
 
-  # portctl_by_role check
+  # portctl_by_role检查
   if ($device and ref $device and $user) {
     $user = ref $user ? $user :
       schema('netdisco')->resultset('User')
                         ->find({ username => $user });
     return false unless $user;
 
-    # special case admin user allowed to continue, because
-    # they can submit port control jobs
+    # 特殊情况管理员用户允许继续，因为
+    # 他们可以提交端口控制作业
     return true if ($user->admin and $user->port_control);
 
     my $role = $user->portctl_role;
     my $acl  = $role ? setting('portctl_by_role')->{$role} : undef;
 
     if ($acl and (ref $acl eq q{} or ref $acl eq ref [])) {
-        # all ports are permitted when the role acl is a device acl
-        # but check the device anyway
+        # 当角色ACL是设备ACL时允许所有端口
+        # 但仍然检查设备
         return acl_matches($device, $acl);
     }
     elsif ($acl and ref $acl eq ref {}) {
         my $found = false;
         foreach my $key (keys %$acl) {
-            # lhs matches device, rhs matches port
+            # 左侧匹配设备，右侧匹配端口
             next unless $key and $acl->{$key};
             if (acl_matches($device, $key)
                 and acl_matches_only($port, $acl->{$key})) {
@@ -125,7 +134,7 @@ sub port_acl_by_role_check {
         return $found;
     }
 
-    # if the user has "Enabled (any port)" setting
+    # 如果用户有"启用（任何端口）"设置
     return $user->port_control;
   }
 
@@ -146,11 +155,13 @@ Will return false if these checks fail, otherwise true.
 
 =cut
 
+# 端口ACL检查
+# 权限检查，确保portctl_no和portctl_only对设备通过
 sub port_acl_check {
   my ($port, $device, $user) = @_;
   my $ip = $port->ip;
 
-  # check for limits on devices
+  # 检查设备限制
   return false if acl_matches($ip, 'portctl_no');
   return false unless acl_matches_only($ip, 'portctl_only');
 
@@ -170,6 +181,8 @@ Then checks according to C<port_acl_check> and C<port_acl_by_role_check> above.
 
 =cut
 
+# 端口ACL服务检查
+# 检查端口上的管理上/下或PoE状态是否可以更改
 sub port_acl_service {
   my ($port, $device, $user) = @_;
 
@@ -199,6 +212,8 @@ Then checks according to C<port_acl_service>.
 
 =cut
 
+# 端口ACL PVID检查
+# 检查端口上的本机VLAN（pvid）是否可以更改
 sub port_acl_pvid {
   my ($port, $device, $user) = @_;
 
@@ -216,6 +231,8 @@ Only setting C<portctl_by_role> is checked.
 
 =cut
 
+# 端口ACL名称检查
+# 检查端口上的名称（描述）是否可以更改
 sub port_acl_name { goto &port_acl_by_role_check }
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,10 +251,12 @@ C<$port_instance>.
 
 =cut
 
+# 获取端口
+# 给定设备IP地址和端口名称，返回Netdisco数据库中设备端口的DBIx::Class::Row对象
 sub get_port {
   my ($device, $portname) = @_;
 
-  # accept either ip or dbic object
+  # 接受IP或DBIC对象
   $device = get_device($device);
 
   return unless $device and $device->in_storage;
