@@ -1,11 +1,15 @@
 package App::Netdisco::DB::ExplicitLocking;
 
+# PostgreSQL显式锁定支持模块
+# 提供PostgreSQL表锁定模式的支持
+
 use strict;
 use warnings;
 
 our %lock_modes;
 
 BEGIN {
+  # 定义PostgreSQL支持的锁定模式
   %lock_modes = (
     ACCESS_SHARE => 'ACCESS SHARE',
     ROW_SHARE => 'ROW SHARE',
@@ -25,13 +29,15 @@ our @EXPORT = ();
 our @EXPORT_OK = (keys %lock_modes);
 our %EXPORT_TAGS = (modes => \@EXPORT_OK);
 
+# 事务锁定执行
+# 在事务块之前执行PostgreSQL表锁定
 sub txn_do_locked {
   my ($self, $table, $mode, $sub) = @_;
   my $sql_fmt = q{LOCK TABLE %s IN %%s MODE};
   my $schema = $self;
 
   if ($self->can('result_source')) {
-      # ResultSet component
+      # ResultSet组件
       $sub = $mode;
       $mode = $table;
       $table = $self->result_source->from;

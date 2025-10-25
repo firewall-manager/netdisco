@@ -1,10 +1,15 @@
 package App::Netdisco::DB::SetOperations;
 
+# 集合操作组件
+# 提供数据库结果集的集合操作功能（UNION、INTERSECT、EXCEPT等）
+
 use strict;
 use warnings;
 
 use parent 'DBIx::Class::Helper::ResultSet::SetOperations';
 
+# 集合操作
+# 执行结果集之间的集合操作（UNION、INTERSECT、EXCEPT等）
 sub _set_operation {
    my ( $self, $operation, $other ) = @_;
  

@@ -1,5 +1,8 @@
 package App::Netdisco::DB::ResultSet;
 
+# 数据库结果集基类
+# 提供DataTables支持和集合操作功能
+
 use strict;
 use warnings;
 
@@ -21,6 +24,8 @@ drop-down list of possible options.
 
 =cut
 
+# 获取唯一列值
+# 返回给定列的不同值的字母排序列表
 sub get_distinct_col {
     my ( $rs, $col ) = @_;
     return $rs unless $col;
@@ -49,6 +54,8 @@ word by word on any field.
 
 =cut
 
+# 获取DataTables数据
+# 返回用于DataTables服务器端处理的结果集
 sub get_datatables_data {
     my $rs     = shift;
     my $params = shift;
@@ -58,13 +65,13 @@ sub get_datatables_data {
         if ref {} ne ref $params
             or 0 == scalar keys %$params;
 
-    # -- Paging
+    # -- 分页
     $rs = $rs->_with_datatables_paging($params);
 
-    # -- Ordering
+    # -- 排序
     $rs = $rs->_with_datatables_order_clause($params);
 
-    # -- Filtering
+    # -- 过滤
     $rs = $rs->_with_datatables_where_clause($params);
 
     return $rs;
@@ -80,6 +87,8 @@ reference to an expanded hash of hashes.
 
 =cut
 
+# 获取DataTables过滤计数
+# 返回过滤后的总记录数
 sub get_datatables_filtered_count {
     my $rs     = shift;
     my $params = shift;
@@ -88,6 +97,8 @@ sub get_datatables_filtered_count {
 
 }
 
+# DataTables排序子句
+# 处理DataTables的排序参数
 sub _with_datatables_order_clause {
     my $rs     = shift;
     my $params = shift;
@@ -98,16 +109,16 @@ sub _with_datatables_order_clause {
     if ( defined $params->{'order'}{0} ) {
         for ( my $i = 0; $i < (scalar keys %{$params->{'order'}}); $i++ ) {
 
-           # build direction, must be '-asc' or '-desc' (cf. SQL::Abstract)
-           # we only get 'asc' or 'desc', so they have to be prefixed with '-'
+           # 构建方向，必须是'-asc'或'-desc'（参考SQL::Abstract）
+           # 我们只得到'asc'或'desc'，所以必须用'-'前缀
             my $direction = '-' . $params->{'order'}{$i}{'dir'};
 
-            # We only get the column index (starting from 0), so we have to
-            # translate the index into a column name.
+            # 我们只得到列索引（从0开始），所以必须
+            # 将索引转换为列名
             my $column_name = _datatables_index_to_column( $params,
                 $params->{'order'}{$i}{'column'} );
 
-            # Prefix with table alias if no prefix
+            # 如果没有前缀，则添加表别名前缀
             my $csa = $rs->current_source_alias;
             $column_name =~ s/^(\w+)$/$csa\.$1/x;
             push @order, { $direction => $column_name };
@@ -118,12 +129,12 @@ sub _with_datatables_order_clause {
     return $rs;
 }
 
-# NOTE this does not match the built-in DataTables filtering which does it
-# word by word on any field.
+# 注意：这与内置的DataTables过滤不匹配，后者是逐字段逐词进行的
 #
-# General filtering using LIKE, this will not be efficient as is will not
-# be able to use indexes.
+# 使用LIKE的通用过滤，这不会高效，因为无法使用索引
 
+# DataTables WHERE子句
+# 处理DataTables的过滤参数
 sub _with_datatables_where_clause {
     my $rs     = shift;
     my $params = shift;
@@ -137,10 +148,9 @@ sub _with_datatables_where_clause {
         my $search_string = $params->{'search'}{'value'};
         for ( my $i = 0; $i < (scalar keys %{$params->{'columns'}}); $i++ ) {
 
-           # Iterate over each column and check if it is searchable.
-           # If so, add a constraint to the where clause restricting the given
-           # column. In the query, the column is identified by it's index, we
-           # need to translate the index to the column name.
+           # 遍历每个列并检查是否可搜索
+           # 如果是，则向where子句添加约束限制给定列
+           # 在查询中，列由其索引标识，我们需要将索引转换为列名
             if (    $params->{'columns'}{$i}{'searchable'}
                 and $params->{'columns'}{$i}{'searchable'} eq 'true' )
             {
@@ -148,7 +158,7 @@ sub _with_datatables_where_clause {
                 my $csa = $rs->current_source_alias;
                 $column =~ s/^(\w+)$/$csa\.$1/x;
 
-                # Cast everything to text for LIKE search
+                # 将所有内容转换为文本以进行LIKE搜索
                 $column = $column . '::text';
                 push @{ $where{'-or'} },
                     { $column => { -like => '%' . $search_string . '%' } };
@@ -160,6 +170,8 @@ sub _with_datatables_where_clause {
     return $rs;
 }
 
+# DataTables分页
+# 处理DataTables的分页参数
 sub _with_datatables_paging {
     my $rs     = shift;
     my $params = shift;
@@ -179,9 +191,10 @@ sub _with_datatables_paging {
     return $rs;
 }
 
-# Use the DataTables columns.data definition to derive the column
-# name from the index.
+# 使用DataTables columns.data定义从索引派生列名
 
+# DataTables索引到列名转换
+# 将DataTables列索引转换为实际的列名
 sub _datatables_index_to_column {
     my $params = shift;
     my $i      = shift;
